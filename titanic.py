@@ -2,11 +2,17 @@
 #D-plot the error rate by num trees used for the RF in ErrorRates.png
 #D-plot the feature importance in FeatureImportances.png
 #D-Make this a git repo
-#D-add one feature at a time to see how it improves my score
+#-add one feature at a time to see how it improves my score
     #D-with baseline features (Pclass,Sex,Age,SibSp,Parch): error=0.193042, score=0.72727
     #D-Fare: error=0.186308, score=0.71770
     #D-Title: error=0.180696, score=0.70813
-#-plot that thing that shows whether im overfitting or underfitting so that i know what to do next
+    #-Family size:
+    #-Embarked
+    #-Deck
+    #-Mother
+    #-Child
+#D-read kaggle blog post for tips on working with python (it didn't really help)
+#D-plot the learning curve (I have high variance, so try smaller set of features?, or adjust params for RF, or try different ML model)
 #-get the same results as the kaggle blogger
 #-Do it in R to see how easy it is
 
@@ -94,11 +100,9 @@ pylab.title('Feature Importances')
 #pylab.savefig('FeatureImportances2.png')
 pylab.show()
 
-
 print 'Predicting...'
 # Take the same decision trees and run it on the test data
 output = forest.predict(test_data).astype(int)
-
 
 print 'Writing to file out.csv...'
 predictions_file = open('out.csv', 'wb')
@@ -106,6 +110,5 @@ open_file_object = csv.writer(predictions_file)
 open_file_object.writerow(['PassengerId', 'Survived'])
 open_file_object.writerows(zip(pids, output))
 predictions_file.close()
-
 
 print 'Done.'
