@@ -11,10 +11,11 @@
     #-Deck
     #-Mother
     #-Child
-#D-read kaggle blog post for tips on working with python (it didn't really help)
+    #-Surname
+#D-read kaggle blog post for tips on working with python
 #D-plot the learning curve (I have high variance, so try smaller set of features?, or adjust params for RF, or try different ML model)
-#-get the same results as the kaggle blogger
 #-Do it in R to see how easy it is
+#-get the same results as the kaggle blogger
 
 
 
