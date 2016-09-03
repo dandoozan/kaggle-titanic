@@ -5,7 +5,7 @@
 #D-Add Fare and Embarked as features: r_rf_PclassSexAgeSibspParchFareEmbarked, 0.8305, 0.75598
 #D-Add FamilySize feature (1 + parch + sibsp): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysize: 0.8227, 0.77990
 #D-Create Child feature (age<18): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild: 0.83053, 0.77033
-#-Discretize Child into Young (0-6), Middle (7-12), Teen (13-17)
+#D-Discretize Age into Young (0-6), Middle (7-12), Teen (13-18), Adult (19-):r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete: 0.83389, 0.77990
 #-Create Title feature from Name
 #-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss')
 #-combine rare titles in Title
@@ -21,7 +21,7 @@ library('caret') #for data-splitting
 library('ggthemes') # visualization
 
 #Globals
-FILENAME = 'r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild'
+FILENAME = 'r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -33,7 +33,7 @@ getError = function(confusionMatrix) {
 
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
-  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize + Child,
+  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize + Child + AgeDiscrete,
       ntree = 100,
       data = data))
 }
@@ -74,7 +74,7 @@ plotLearningCurve = function(data) {
 }
 
 #I do not understand any of this code, I borrowed it from a kaggler
-plotImportances = function(rf) {
+plotImportances = function(rf, save=FALSE) {
   print('Plotting Feature Importances...')
 
   # Get importance
@@ -86,7 +86,9 @@ plotImportances = function(rf) {
   rankImportance = varImportance %>%
       mutate(Rank = paste0('#',dense_rank(desc(Importance))))
 
-  png(paste0('Importances_', FILENAME, '.png'), width=500, height=350)
+  if (save) {
+    png(paste0('Importances_', FILENAME, '.png'), width=500, height=350)
+  }
   print(ggplot(rankImportance, aes(x = reorder(Variables, Importance),
           y = Importance, fill = Importance)) +
       geom_bar(stat='identity') +
@@ -94,21 +96,6 @@ plotImportances = function(rf) {
           hjust=0, vjust=0.55, size = 4, colour = 'red') +
       labs(title='Feature Importances', x='Features') +
       coord_flip() +
-      theme_few())
-  dev.off()
-}
-
-plotFamilySize = function(data, save=FALSE) {
-  print('Plotting Family Size...')
-
-  if (save) {
-    png(paste0('FamilySize_', FILENAME, '.png'), width=500, height=350)
-  }
-  print(ggplot(data, aes(x=FamilySize, fill=factor(Survived))) +
-      geom_bar(stat='count', position='dodge') +
-      scale_x_continuous(breaks=c(1:max(data$FamilySize))) +
-      scale_fill_discrete(name='Survived') +
-      labs(title='Survival by Family Size', x='Family Size', y='Count') +
       theme_few())
   if (save) {
     dev.off()
@@ -140,6 +127,9 @@ full$FamilySize = (1 + full$SibSp + full$Parch)
 #create Child feature
 full$Child = full$Age < 18
 
+#create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
+full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Y', 'M', 'T', 'A'))
+
 #split the data back into train and test
 train = full[1:nrow(train),]
 test = full[(nrow(train)+1):nrow(full),]
@@ -147,18 +137,16 @@ test = full[(nrow(train)+1):nrow(full),]
 if (PROD_RUN) {
   #plot learning curve
   plotLearningCurve(train)
+}
 
-  rf = getRandomForest(train)
+rf = getRandomForest(train)
+plotImportances(rf, save=PROD_RUN)
+print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
 
-  #plot importances
-  plotImportances(rf)
 
-  #plot survival by FamilySize
-  plotFamilySize(train, save=T)
-
+if (PROD_RUN) {
   #Output solution
   prediction = predict(rf, test)
-  print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
   solution = data.frame(PassengerID = test$PassengerId, Survived = prediction)
   write.csv(solution, file=paste0(FILENAME, '.csv'), row.names=F)
 }
