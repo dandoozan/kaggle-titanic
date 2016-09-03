@@ -9,11 +9,11 @@
 #D-Create Title feature from Name: r_rf_+Title: 0.83053, 0.77990
 #D-Combine rare titles in Title: r_rf_+Title2: 0.83165, 0.76555
 #D-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss'): r_rf_+Mother: 0.83053, 0.77033
+#D-Discretize family size into Single, Small, Large: r_rf_+FamilySizeDiscrete: 0.83389, 0.78947
 #-Fill in Age more cleverly
 #-Fill in Embarked values more cleverly
 #-Fill in Fare more cleverly
-#-Discretize family size into Singleton, Small, Large
-#-Remove Child, RareTitle, Mother
+#-Remove Child, RareTitle, Mother, FamilySize?
 
 
 library('dplyr') # data manipulation
@@ -25,7 +25,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_+Mother'
+FILENAME = 'r_rf_+FamilySizeDiscrete'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -38,7 +38,8 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title + Mother,
+                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title + Mother +
+                         FamilySizeDiscrete,
       ntree = 100,
       data = data))
 }
@@ -128,6 +129,11 @@ full$Embarked = na.roughfix(full$Embarked)
 
 #create FamilySize feature
 full$FamilySize = (1 + full$SibSp + full$Parch)
+
+#discretize FamilySize: 1=Single, 2-4=Small, >5=Large (these values were arrived at by
+#manually examining the data; families of size 2-4 seem to have a better chance of
+#survival than singletons or large families)
+full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
 
 #create Child feature
 full$Child = full$Age < 18
