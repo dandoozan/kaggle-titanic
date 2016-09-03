@@ -6,22 +6,25 @@
 #D-Add FamilySize feature (1 + parch + sibsp): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysize: 0.8227, 0.77990
 #D-Create Child feature (age<18): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild: 0.83053, 0.77033
 #D-Discretize Age into Young (0-6), Middle (7-12), Teen (13-18), Adult (19-):r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete: 0.83389, 0.77990
-#-Create Title feature from Name
+#D-Create Title feature from Name: r_rf_+Title: 0.83053, 0.77990
+#-Combine rare titles in Title
 #-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss')
-#-combine rare titles in Title
 #-Fill in Age more cleverly
 #-Fill in Embarked values more cleverly
 #-Fill in Fare more cleverly
 #-Discretize family size into Singleton, Small, Large
 
+
 library('dplyr') # data manipulation
 library('mice') # imputation
 library('randomForest') # classification algorithm
 library('caret') #for data-splitting
+library('ggplot2') #visualization
 library('ggthemes') # visualization
 
+
 #Globals
-FILENAME = 'r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete'
+FILENAME = 'r_rf_+Title'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -33,7 +36,8 @@ getError = function(confusionMatrix) {
 
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
-  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize + Child + AgeDiscrete,
+  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
+                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title,
       ntree = 100,
       data = data))
 }
@@ -116,7 +120,7 @@ full = subset(full, select=-c(Ticket, Cabin))
 full$Sex = factor(full$Sex)
 full$Embarked = factor(full$Embarked)
 
-#Impute missing values in Age, Fare, Embarked
+#impute missing values in Age, Fare, Embarked
 full$Age = na.roughfix(full$Age)
 full$Fare = na.roughfix(full$Fare)
 full$Embarked = na.roughfix(full$Embarked)
@@ -129,6 +133,12 @@ full$Child = full$Age < 18
 
 #create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
 full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Y', 'M', 'T', 'A'))
+
+#create Title feature from Name
+full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
+full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
+full$Title[full$Title == 'Mme'] = 'Mrs'
+full$Title = factor(full$Title)
 
 #split the data back into train and test
 train = full[1:nrow(train),]
