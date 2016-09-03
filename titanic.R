@@ -7,12 +7,13 @@
 #D-Create Child feature (age<18): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild: 0.83053, 0.77033
 #D-Discretize Age into Young (0-6), Middle (7-12), Teen (13-18), Adult (19-):r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete: 0.83389, 0.77990
 #D-Create Title feature from Name: r_rf_+Title: 0.83053, 0.77990
-#-Combine rare titles in Title
+#D-Combine rare titles in Title: r_rf_+Title2: 0.83165, 0.76555
 #-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss')
 #-Fill in Age more cleverly
 #-Fill in Embarked values more cleverly
 #-Fill in Fare more cleverly
 #-Discretize family size into Singleton, Small, Large
+#-Remove RareTitle and Child
 
 
 library('dplyr') # data manipulation
@@ -24,7 +25,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_+Title'
+FILENAME = 'r_rf_+Title2'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -138,6 +139,7 @@ full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Y', 'M'
 full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
 full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
 full$Title[full$Title == 'Mme'] = 'Mrs'
+full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
 full$Title = factor(full$Title)
 
 #split the data back into train and test
