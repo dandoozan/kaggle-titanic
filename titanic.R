@@ -10,9 +10,7 @@
 #D-Combine rare titles in Title: r_rf_+Title2: 0.83165, 0.76555
 #D-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss'): r_rf_+Mother: 0.83053, 0.77033
 #D-Discretize family size into Single, Small, Large: r_rf_+FamilySizeDiscrete: 0.83389, 0.78947
-#-Fill in Age more cleverly
-#-Fill in Embarked values more cleverly
-#-Fill in Fare more cleverly
+#D-Impute missing values in Age, Fare, and Embarked using MICE: r_rf_Mice, 0.83389, 0.78947
 #-Remove Child, RareTitle, Mother, FamilySize?
 
 
@@ -25,7 +23,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_+FamilySizeDiscrete'
+FILENAME = 'r_rf_Mice'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -51,28 +49,26 @@ plotLearningCurve = function(data) {
   trainIndex = createDataPartition(data$Survived, p=0.8, list=FALSE)
   train = data[trainIndex,]
   cv = data[-trainIndex,]
-  
+
   incrementSize = 5
   increments = seq(incrementSize, nrow(train), incrementSize)
   numIterations = length(increments)
   trainErrors = numeric(numIterations)
   cvErrors = numeric(numIterations)
-  
+
   count = 1
   for (i in increments) {
-    if (i %% 100 == 0) {
-      print(paste('On training example', i))
-    }
+    if (i %% 100 == 0) print(paste('On training example', i))
     trainSubset = train[1:i,]
     rf = getRandomForest(trainSubset)
     trainPrediction = predict(rf, trainSubset)
     trainErrors[count] = getError(table(trainSubset$Survived, trainPrediction))
-    
+
     cvPrediction = predict(rf, cv)
     cvErrors[count] = getError(table(cv$Survived, cvPrediction))
     count = count + 1
   }
-  
+
   png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
   plot(increments, trainErrors, type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
   lines(increments, cvErrors)
@@ -111,8 +107,8 @@ plotImportances = function(rf, save=FALSE) {
 #============= Main ================
 set.seed(SEED_NUMBER)
 
-train = read.csv('data/train.csv', stringsAsFactors=F)
-test = read.csv('data/test.csv', stringsAsFactors=F)
+train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
+test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
 full = bind_rows(train, test)
 
 #remove unnecessary cols
@@ -123,9 +119,12 @@ full$Sex = factor(full$Sex)
 full$Embarked = factor(full$Embarked)
 
 #impute missing values in Age, Fare, Embarked
-full$Age = na.roughfix(full$Age)
-full$Fare = na.roughfix(full$Fare)
-full$Embarked = na.roughfix(full$Embarked)
+print('Imputing missing values...')
+mice_output = complete(mice(subset(full, select=-c(Survived)), seed=SEED_NUMBER, printFlag=F))
+full$Age = mice_output$Age #263 occurrences
+full$Fare = mice_output$Fare #1 occurrence (row 1044=7.25)
+full$Embarked = mice_output$Embarked #2 occurrences (row 62=S, row 830=C)
+
 
 #create FamilySize feature
 full$FamilySize = (1 + full$SibSp + full$Parch)
@@ -169,5 +168,7 @@ if (PROD_RUN) {
   #Output solution
   prediction = predict(rf, test)
   solution = data.frame(PassengerID = test$PassengerId, Survived = prediction)
-  write.csv(solution, file=paste0(FILENAME, '.csv'), row.names=F)
+  outputFilename = paste0(FILENAME, '.csv')
+  print(paste('Writing solution to file:', outputFilename, '...'))
+  write.csv(solution, file=outputFilename, row.names=F)
 }
