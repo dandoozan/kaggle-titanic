@@ -4,9 +4,10 @@
 #D-Submit baseline using roughfix (feautures=Pclass,Sex,Age,SibSp,Parch): r_rf_PclassSexAgeSibspParch: OOBAccuracy=0.8249, score=0.74641
 #D-Add Fare and Embarked as features: r_rf_PclassSexAgeSibspParchFareEmbarked, 0.8305, 0.75598
 #D-Add FamilySize feature (1 + parch + sibsp): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysize: 0.8227, 0.77990
+#D-Create Child feature (age<18): r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild: 0.83053, 0.77033
+#-Discretize Child into Young (0-6), Middle (7-12), Teen (13-17)
 #-Create Title feature from Name
 #-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss')
-#-Create Child feature (age<18)
 #-combine rare titles in Title
 #-Fill in Age more cleverly
 #-Fill in Embarked values more cleverly
@@ -20,8 +21,9 @@ library('caret') #for data-splitting
 library('ggthemes') # visualization
 
 #Globals
-FILENAME = 'r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysize'
+FILENAME = 'r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChild'
 SEED_NUMBER = 343
+PROD_RUN = T
 
 #It seems absurd that they don't have a function to get this, but I can't
 #find it, so create my own until I find a built-in way to get the OOB Error
@@ -31,7 +33,7 @@ getError = function(confusionMatrix) {
 
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
-  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize,
+  return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + FamilySize + Child,
       ntree = 100,
       data = data))
 }
@@ -96,17 +98,21 @@ plotImportances = function(rf) {
   dev.off()
 }
 
-plotFamilySize = function(data) {
+plotFamilySize = function(data, save=FALSE) {
   print('Plotting Family Size...')
 
-  png(paste0('FamilySize_', FILENAME, '.png'), width=500, height=350)
-  print(ggplot(data, aes(x=FamilySize, fill=factor(Survived, levels=c(1, 0)))) +
+  if (save) {
+    png(paste0('FamilySize_', FILENAME, '.png'), width=500, height=350)
+  }
+  print(ggplot(data, aes(x=FamilySize, fill=factor(Survived))) +
       geom_bar(stat='count', position='dodge') +
       scale_x_continuous(breaks=c(1:max(data$FamilySize))) +
       scale_fill_discrete(name='Survived') +
       labs(title='Survival by Family Size', x='Family Size', y='Count') +
       theme_few())
-  dev.off()
+  if (save) {
+    dev.off()
+  }
 }
 
 #============= Main ================
@@ -131,23 +137,28 @@ full$Embarked = na.roughfix(full$Embarked)
 #create FamilySize feature
 full$FamilySize = (1 + full$SibSp + full$Parch)
 
+#create Child feature
+full$Child = full$Age < 18
+
 #split the data back into train and test
 train = full[1:nrow(train),]
 test = full[(nrow(train)+1):nrow(full),]
 
-#plot family size
-plotFamilySize(train)
+if (PROD_RUN) {
+  #plot learning curve
+  plotLearningCurve(train)
 
-#plot learning curve
-plotLearningCurve(train)
+  rf = getRandomForest(train)
 
-rf = getRandomForest(train)
+  #plot importances
+  plotImportances(rf)
 
-#plot importances
-plotImportances(rf)
+  #plot survival by FamilySize
+  plotFamilySize(train, save=T)
 
-#Output solution
-prediction = predict(rf, test)
-print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
-solution = data.frame(PassengerID = test$PassengerId, Survived = prediction)
-write.csv(solution, file=paste0(FILENAME, '.csv'), row.names=F)
+  #Output solution
+  prediction = predict(rf, test)
+  print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
+  solution = data.frame(PassengerID = test$PassengerId, Survived = prediction)
+  write.csv(solution, file=paste0(FILENAME, '.csv'), row.names=F)
+}
