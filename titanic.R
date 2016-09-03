@@ -8,12 +8,12 @@
 #D-Discretize Age into Young (0-6), Middle (7-12), Teen (13-18), Adult (19-):r_rf_PclassSexAgeSibspParchFareEmbarkedFamilysizeChildAgediscrete: 0.83389, 0.77990
 #D-Create Title feature from Name: r_rf_+Title: 0.83053, 0.77990
 #D-Combine rare titles in Title: r_rf_+Title2: 0.83165, 0.76555
-#-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss')
+#D-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss'): r_rf_+Mother: 0.83053, 0.77033
 #-Fill in Age more cleverly
 #-Fill in Embarked values more cleverly
 #-Fill in Fare more cleverly
 #-Discretize family size into Singleton, Small, Large
-#-Remove RareTitle and Child
+#-Remove Child, RareTitle, Mother
 
 
 library('dplyr') # data manipulation
@@ -25,7 +25,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_+Title2'
+FILENAME = 'r_rf_+Mother'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -38,7 +38,7 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title,
+                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title + Mother,
       ntree = 100,
       data = data))
 }
@@ -141,6 +141,9 @@ full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
 full$Title[full$Title == 'Mme'] = 'Mrs'
 full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
 full$Title = factor(full$Title)
+
+#create Mother feature
+full$Mother = full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'
 
 #split the data back into train and test
 train = full[1:nrow(train),]
