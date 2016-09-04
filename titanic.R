@@ -12,7 +12,7 @@
 #D-Discretize family size into Single, Small, Large: r_rf_+FamilySizeDiscrete: 0.83389, 0.78947
 #D-Impute missing values in Age, Fare, and Embarked using MICE: r_rf_Mice, 0.83389, 0.78947
 #D-Remove Child: r_rf_-Child: 0.82155, 0.78947
-#-use Title when imputing values
+#-use Title when imputing values: r_rf_Mice2: 0.83389, 0.77512
 #-Remove rare titles, FamilySize?
 
 
@@ -25,7 +25,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_-Child'
+FILENAME = 'r_rf_Mice2'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -120,6 +120,14 @@ full = subset(full, select=-c(Ticket, Cabin))
 full$Sex = factor(full$Sex)
 full$Embarked = factor(full$Embarked)
 
+#create Title feature from Name
+full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
+full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
+full$Title[full$Title == 'Mme'] = 'Mrs'
+full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
+full$Title = factor(full$Title)
+
+
 #impute missing values in Age, Fare, Embarked
 print('Imputing missing values...')
 mice_output = complete(mice(subset(full, select=-c(Survived)), seed=SEED_NUMBER, printFlag=F))
@@ -140,14 +148,8 @@ full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c
 full$Child = full$Age < 18
 
 #create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
-full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Y', 'M', 'T', 'A'))
+full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
 
-#create Title feature from Name
-full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
-full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
-full$Title[full$Title == 'Mme'] = 'Mrs'
-full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
-full$Title = factor(full$Title)
 
 #create Mother feature
 full$Mother = full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'
