@@ -11,7 +11,9 @@
 #D-Create Mother feature (sex=female & age>18 & parch>0 & Title!='Miss'): r_rf_+Mother: 0.83053, 0.77033
 #D-Discretize family size into Single, Small, Large: r_rf_+FamilySizeDiscrete: 0.83389, 0.78947
 #D-Impute missing values in Age, Fare, and Embarked using MICE: r_rf_Mice, 0.83389, 0.78947
-#-Remove Child, RareTitle, Mother, FamilySize?
+#D-Remove Child: r_rf_-Child: 0.82155, 0.78947
+#-use Title when imputing values
+#-Remove rare titles, FamilySize?
 
 
 library('dplyr') # data manipulation
@@ -23,7 +25,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_Mice'
+FILENAME = 'r_rf_-Child'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -36,7 +38,7 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + FamilySize + Child + AgeDiscrete + Title + Mother +
+                         Fare + Embarked + FamilySize + AgeDiscrete + Title + Mother +
                          FamilySizeDiscrete,
       ntree = 100,
       data = data))
