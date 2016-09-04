@@ -14,7 +14,9 @@
 #D-Remove Child: r_rf_-Child: 0.82155, 0.78947
 #D-use Title when imputing values: r_rf_Mice2: 0.83389, 0.77512
 #D-Remove FamilySize: r_rf_-FamilySize: 0.83389, 0.77990
-#-Remove rare titles, Mother?
+#D-Remove Mother: r_rf_-Mother: 0.83951, 0.76077
+#-Remove rare titles?
+#-Add back Mother?
 
 
 library('dplyr') # data manipulation
@@ -26,7 +28,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_-FamilySize'
+FILENAME = 'r_rf_-Mother'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -39,7 +41,7 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + Title + FamilySizeDiscrete + AgeDiscrete + Mother,
+                         Fare + Embarked + Title + FamilySizeDiscrete + AgeDiscrete,
       ntree = 100,
       data = data))
 }
