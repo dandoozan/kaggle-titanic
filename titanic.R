@@ -12,8 +12,9 @@
 #D-Discretize family size into Single, Small, Large: r_rf_+FamilySizeDiscrete: 0.83389, 0.78947
 #D-Impute missing values in Age, Fare, and Embarked using MICE: r_rf_Mice, 0.83389, 0.78947
 #D-Remove Child: r_rf_-Child: 0.82155, 0.78947
-#-use Title when imputing values: r_rf_Mice2: 0.83389, 0.77512
-#-Remove rare titles, FamilySize?
+#D-use Title when imputing values: r_rf_Mice2: 0.83389, 0.77512
+#D-Remove FamilySize: r_rf_-FamilySize: 0.83389, 0.77990
+#-Remove rare titles, Mother?
 
 
 library('dplyr') # data manipulation
@@ -25,7 +26,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_Mice2'
+FILENAME = 'r_rf_-FamilySize'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -38,8 +39,7 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + FamilySize + AgeDiscrete + Title + Mother +
-                         FamilySizeDiscrete,
+                         Fare + Embarked + Title + FamilySizeDiscrete + AgeDiscrete + Mother,
       ntree = 100,
       data = data))
 }
@@ -144,15 +144,16 @@ full$FamilySize = (1 + full$SibSp + full$Parch)
 #survival than singletons or large families)
 full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
 
+
 #create Child feature
 full$Child = full$Age < 18
 
 #create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
 full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
 
-
 #create Mother feature
 full$Mother = full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'
+
 
 #split the data back into train and test
 train = full[1:nrow(train),]
