@@ -30,7 +30,9 @@
   #D-Add back Child, Mother: 0.83277
   #D-Use default ntree for rf: 0.83165
   #D-set.seed(754) for rf: 0.83726
+#-Add back AgeDiscrete: r_rf_+AgeDiscrete: 0.83502, 0.78947
 #-Remove rare titles?
+
 
 
 library('dplyr') # data manipulation
@@ -42,7 +44,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_SameAsK'
+FILENAME = 'r_rf_+AgeDiscrete'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -55,7 +57,8 @@ getError = function(confusionMatrix) {
 getRandomForest = function(data) {
   #set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + Title + FamilySizeDiscrete + Child + Mother,
+                         Fare + Embarked + Title + FamilySizeDiscrete + Child + Mother +
+                         AgeDiscrete,
       data = data))
 }
 
@@ -175,7 +178,7 @@ full$Child[full$Age >= 18] = 'Adult'
 full$Child = factor(full$Child)
 
 #create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
-#full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
+full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
 
 #create Mother feature
 full$Mother = 'NotMother'
