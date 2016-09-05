@@ -15,8 +15,22 @@
 #D-use Title when imputing values: r_rf_Mice2: 0.83389, 0.77512
 #D-Remove FamilySize: r_rf_-FamilySize: 0.83389, 0.77990
 #D-Remove Mother: r_rf_-Mother: 0.83951, 0.76077
+#D-Get exactly what kaggler got:r_rf_SameAsK: 0.83726, 0.77990
+  #D-Impute Embarked NAs with 'C': 0.83614
+  #D-Impute Fare NA with 8.05: 0.83614
+  #D-Make Pclass a factor: 0.82716
+  #D-Change mice method, excluded cols, and seed: 0.83053
+  #D-Make PassengerId a factor: 0.83053
+  #D-Don't delete Ticket and Cabin cols: 0.83053
+  #D-Add Deck: 0.83053
+  #D-Use FamilySize, FamilySizeDiscrete, and Deck in mice: 0.83389
+  #***Note: Ages are still different with mice, but they're close; maybe the difference is due to the seed
+  #D-Make Child and Mother string factors: 0.83389
+  #D-Remove AgeDiscrete: 0.83838
+  #D-Add back Child, Mother: 0.83277
+  #D-Use default ntree for rf: 0.83165
+  #D-set.seed(754) for rf: 0.83726
 #-Remove rare titles?
-#-Add back Mother?
 
 
 library('dplyr') # data manipulation
@@ -28,7 +42,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_-Mother'
+FILENAME = 'r_rf_SameAsK'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -39,10 +53,9 @@ getError = function(confusionMatrix) {
 }
 
 getRandomForest = function(data) {
-  set.seed(SEED_NUMBER)
+  #set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
-                         Fare + Embarked + Title + FamilySizeDiscrete + AgeDiscrete,
-      ntree = 100,
+                         Fare + Embarked + Title + FamilySizeDiscrete + Child + Mother,
       data = data))
 }
 
@@ -108,19 +121,19 @@ plotImportances = function(rf, save=FALSE) {
   }
 }
 
+
 #============= Main ================
-set.seed(SEED_NUMBER)
+#set.seed(SEED_NUMBER)
 
 train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
 test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
 full = bind_rows(train, test)
 
-#remove unnecessary cols
-full = subset(full, select=-c(Ticket, Cabin))
-
 #manually create factors from some cols
 full$Sex = factor(full$Sex)
 full$Embarked = factor(full$Embarked)
+full$PassengerId = factor(full$PassengerId)
+full$Pclass = factor(full$Pclass)
 
 #create Title feature from Name
 full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
@@ -129,13 +142,6 @@ full$Title[full$Title == 'Mme'] = 'Mrs'
 full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
 full$Title = factor(full$Title)
 
-
-#impute missing values in Age, Fare, Embarked
-print('Imputing missing values...')
-mice_output = complete(mice(subset(full, select=-c(Survived)), seed=SEED_NUMBER, printFlag=F))
-full$Age = mice_output$Age #263 occurrences
-full$Fare = mice_output$Fare #1 occurrence (row 1044=7.25)
-full$Embarked = mice_output$Embarked #2 occurrences (row 62=S, row 830=C)
 
 
 #create FamilySize feature
@@ -146,16 +152,35 @@ full$FamilySize = (1 + full$SibSp + full$Parch)
 #survival than singletons or large families)
 full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
 
+#create Deck feature from Cabin
+full$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1]))
+
+
+#impute missing values in Age, Fare, Embarked
+print('Imputing missing values...')
+#mice_imp = mice(subset(full, select=-c(Survived)), seed=SEED_NUMBER, printFlag=F)
+set.seed(129)
+mice_imp = mice(full[, !names(full) %in% c('PassengerId', 'Name', 'Ticket', 'Cabin', 'Survived')], method='rf', printFlag=F)
+mice_output = complete(mice_imp)
+full$Age = mice_output$Age #263 occurrences
+#full$Fare = mice_output$Fare #1 occurrence (row 1044=8.05)
+#full$Embarked = mice_output$Embarked #2 occurrences (row 62=S, row 830=C)
+full$Fare[1044] = 8.05
+full$Embarked[c(62, 830)] = 'C'
+
 
 #create Child feature
-full$Child = full$Age < 18
+full$Child[full$Age < 18] = 'Child'
+full$Child[full$Age >= 18] = 'Adult'
+full$Child = factor(full$Child)
 
 #create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
-full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
+#full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
 
 #create Mother feature
-full$Mother = full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'
-
+full$Mother = 'NotMother'
+full$Mother[full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'] = 'Mother'
+full$Mother = factor(full$Mother)
 
 #split the data back into train and test
 train = full[1:nrow(train),]
@@ -163,9 +188,10 @@ test = full[(nrow(train)+1):nrow(full),]
 
 if (PROD_RUN) {
   #plot learning curve
-  plotLearningCurve(train)
+  #plotLearningCurve(train)
 }
 
+set.seed(754)
 rf = getRandomForest(train)
 plotImportances(rf, save=PROD_RUN)
 print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
