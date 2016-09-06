@@ -32,9 +32,7 @@
   #D-set.seed(754) for rf: 0.83726
 #D-Add back AgeDiscrete: r_rf_+AgeDiscrete: 0.83502, 0.78947
 #D-Remove Deck b/c it makes mice slow: r_rf_-Deck: 0.83277, 0.79426
-#-Add FareDiscrete (low=0-50, high=>50):
-#-Remove rare titles?
-
+#D-Add FareDiscrete (low=0-50, high=>50): r_rf_+FareDiscrete: 0.83502, 0.80861
 
 
 library('dplyr') # data manipulation
@@ -46,7 +44,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_-Deck'
+FILENAME = 'r_rf_+FareDiscrete'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -60,7 +58,7 @@ getRandomForest = function(data) {
   #set.seed(SEED_NUMBER)
   return (randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch +
                          Fare + Embarked + Title + FamilySizeDiscrete + Child + Mother +
-                         AgeDiscrete,
+                         AgeDiscrete + FareDiscrete,
       data = data))
 }
 
@@ -170,6 +168,8 @@ full$Age = mice_output$Age #263 occurrences
 full$Fare[1044] = 8.05
 full$Embarked[c(62, 830)] = 'C'
 
+#discretize Fare
+full$FareDiscrete = cut(full$Fare, c(-1, 50, 10000), labels=c('Low', 'High'))
 
 #create Child feature
 full$Child[full$Age < 18] = 'Child'
@@ -194,6 +194,8 @@ if (PROD_RUN) {
 }
 
 set.seed(754)
+
+print('Creating Random Forest...')
 rf = getRandomForest(train)
 plotImportances(rf, save=PROD_RUN)
 print(paste('OOB Accuracy:', (1-getError(rf$confusion))))
