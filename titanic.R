@@ -30,7 +30,9 @@
   #D-Add back Child, Mother: 0.83277
   #D-Use default ntree for rf: 0.83165
   #D-set.seed(754) for rf: 0.83726
-#-Add back AgeDiscrete: r_rf_+AgeDiscrete: 0.83502, 0.78947
+#D-Add back AgeDiscrete: r_rf_+AgeDiscrete: 0.83502, 0.78947
+#D-Remove Deck b/c it makes mice slow: r_rf_-Deck: 0.83277, 0.79426
+#-Add FareDiscrete (low=0-50, high=>50):
 #-Remove rare titles?
 
 
@@ -44,7 +46,7 @@ library('ggthemes') # visualization
 
 
 #Globals
-FILENAME = 'r_rf_+AgeDiscrete'
+FILENAME = 'r_rf_-Deck'
 SEED_NUMBER = 343
 PROD_RUN = T
 
@@ -154,9 +156,6 @@ full$FamilySize = (1 + full$SibSp + full$Parch)
 #manually examining the data; families of size 2-4 seem to have a better chance of
 #survival than singletons or large families)
 full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
-
-#create Deck feature from Cabin
-full$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1]))
 
 
 #impute missing values in Age, Fare, Embarked
