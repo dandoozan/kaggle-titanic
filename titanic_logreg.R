@@ -1,5 +1,10 @@
 #todo:
 #D-initial logistic regression: r_logreg: accuracy=0.84831, score=0.77512
+#D-plot learning curve
+#D-print train accuracy
+#-use trainCv model for final model
+
+
 
 library('dplyr') # data manipulation
 library('mice') # imputation
@@ -13,40 +18,60 @@ library(ROCR) #for ROC plot
 
 #Globals
 FILENAME = 'r_logreg'
-PROD_RUN = T
+PROD_RUN = F
 
 
-findAccuracy = function(data) {
+plotLearningCurve = function(data) {
+  print('Plotting Learning Curve...')
+  
   #split data into train and cv
-  set.seed(837)
   index = createDataPartition(data$Survived, p=0.8, list=FALSE)
   trainCv = data[index,]
   cv = data[-index,]
+
+  incrementSize = 5
+  startIndex = 120 #I have to start at 120 so that all values of each factor are represented, otherwise predict(cv) throws an error
+  increments = seq(startIndex, nrow(trainCv), incrementSize)
+  numIterations = length(increments)
+  trainErrors = numeric(numIterations)
+  cvErrors = numeric(numIterations)
+  count = 1
+  for (i in increments) {
+    if (i %% 100 == 0) print(paste('On training example', i))
+
+    trainSubset = trainCv[1:i,]
+    
+    set.seed(754)
+    model = glm(Survived ~., family=binomial(link='logit'), data=trainSubset)
+    trainCvPrediction = predict(model, type='response')
+    trainCvPrediction = ifelse(trainCvPrediction > 0.5, 1, 0)
+    trainErrors[count] = mean(trainCvPrediction != trainSubset$Survived)
+    
+    cvPrediction = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
+    cvPrediction = ifelse(cvPrediction > 0.5, 1, 0)
+    cvErrors[count] = mean(cvPrediction != cv$Survived)
+    count = count + 1
+  }
   
-  #Fit the logistic regression model
-  set.seed(754)
+  #save plot
+  #png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
+  plot(increments, trainErrors, type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
+  lines(increments, cvErrors)
+  #dev.off()
+
+  
+  #print final train and cv accuracies
   model = glm(Survived ~., family=binomial(link='logit'), data=trainCv)
   
-  #I think these are useful to keep around, so I'm just commenting them out for now
-  #print(anova(model, test='Chisq')) #print deviance table
-  #print(pR2(model)) #print R2
+  #print train accuracy
+  trainCvPrediction = predict(model, type='response')
+  trainCvPrediction = ifelse(trainCvPrediction > 0.5, 1, 0)
+  print(paste('TrainCv accuracy:', (1 - mean(trainCvPrediction != trainCv$Survived))))
   
-  fittedResults = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
-  fittedResults = ifelse(fittedResults > 0.5, 1, 0)
-  misclassificationError = mean(fittedResults != cv$Survived)
-  return (1 - misclassificationError)
-  
-  #I'm commenting these out because i dont really know what to use them for. But I want to keep them because I'm pretty sure they'll be useful later
-  # #plot ROC
-  # p = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
-  # pr = prediction(p, cv$Survived)
-  # prf = performance(pr, measure='tpr', x.measure='fpr')
-  # plot(prf)
-  # 
-  # #print area under curve
-  # auc = performance(pr, measure='auc')
-  # auc = auc@y.values[[1]]
-  # print(paste('Area Under Curve:', auc))
+  #print cv accuracy
+  cvPrediction = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
+  cvPrediction = ifelse(cvPrediction > 0.5, 1, 0)
+  print(paste('CV accuracy:', (1 - mean(cvPrediction != cv$Survived))))
 }
 
 #============= Main ================
@@ -83,6 +108,7 @@ set.seed(129)
 mice_imp = mice(subset(full, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
 mice_output = complete(mice_imp)
 full$Age = mice_output$Age
+#full$Age = na.roughfix(full$Age) #tbx
 full$Fare[1044] = 8.05
 full$Embarked[c(62, 830)] = 'C'
 
@@ -112,13 +138,17 @@ test = full[(nrow(train)+1):nrow(full),]
 #remove unused cols from train so that the logistic regression call is smoother
 train = subset(train, select=-c(PassengerId, Name, Ticket, Cabin))
 
-accuracy = findAccuracy(train)
-print(paste('Accuracy:', accuracy))
+plotLearningCurve(train)
+
+set.seed(754)
+model = glm(Survived ~., family=binomial(link='logit'), data=train)
+
+#print train accuracy
+trainPrediction = predict(model, type = 'response')
+trainPrediction = ifelse(trainPrediction > 0.5, 1, 0)
+print(paste('Train accuracy:', (1 - mean(trainPrediction != train$Survived))))
 
 if (PROD_RUN) {
-  set.seed(754)
-  model = glm(Survived ~., family=binomial(link='logit'), data=train)
-
   #Output solution
   prediction = predict(model, newdata=subset(test, select=-c(Survived)), type='response')
   prediction = ifelse(prediction > 0.5, 1, 0)
