@@ -38,17 +38,17 @@
 #D-Use 1 seed (343): r_rf_seed343: 0.82379, 0.79904
 #D-Put the seeds back how they were: r_rf_seedRevert: 0.83502, 0.80861
 
-library('dplyr') # data manipulation
-library('mice') # imputation
-library('randomForest') # classification algorithm
-library('caret') #for data-splitting
-library('ggplot2') #visualization
-library('ggthemes') # visualization
+library(dplyr) # data manipulation
+library(randomForest) # classification algorithm
+library(caret) #data-splitting
+library(ggplot2) #visualization
+library(ggthemes) # visualization
+source('_featureEngineer.R') #feature engineering
 
 
 #Globals
 FILENAME = 'r_rf_seedRevert'
-PROD_RUN = T
+PROD_RUN = F
 
 #It seems absurd that they don't have a function to get this, but I can't
 #find it, so create my own until I find a built-in way to get the OOB Error
@@ -138,46 +138,8 @@ full$Embarked = factor(full$Embarked)
 full$PassengerId = factor(full$PassengerId)
 full$Pclass = factor(full$Pclass)
 
-#create Title feature from Name
-full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
-full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
-full$Title[full$Title == 'Mme'] = 'Mrs'
-full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
-full$Title = factor(full$Title)
-
-#create FamilySize feature
-full$FamilySize = (1 + full$SibSp + full$Parch)
-
-#discretize FamilySize: 1=Single, 2-4=Small, >5=Large (these values were arrived at by
-#manually examining the data; families of size 2-4 seem to have a better chance of
-#survival than singletons or large families)
-full$FamilySizeDiscrete = cut(full$FamilySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
-
-
-#impute missing values in Age, Fare, Embarked
-print('Imputing missing values...')
-set.seed(129)
-mice_imp = mice(subset(full, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
-mice_output = complete(mice_imp)
-full$Age = mice_output$Age
-full$Fare[1044] = 8.05
-full$Embarked[c(62, 830)] = 'C'
-
-#discretize Fare
-full$FareDiscrete = cut(full$Fare, c(-1, 50, 10000), labels=c('Low', 'High'))
-
-#create Child feature
-full$Child[full$Age < 18] = 'Child'
-full$Child[full$Age >= 18] = 'Adult'
-full$Child = factor(full$Child)
-
-#create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
-full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
-
-#create Mother feature
-full$Mother = 'NotMother'
-full$Mother[full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'] = 'Mother'
-full$Mother = factor(full$Mother)
+#do feature engineering
+full = featureEngineer(full, useMice=TRUE)
 
 #split the data back into train and test
 train = full[1:nrow(train),]
