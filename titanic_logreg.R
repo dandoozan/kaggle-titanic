@@ -6,16 +6,10 @@
 #-use trainCv model for final model
 
 
-library(dplyr) # data manipulation
-library(mice) # imputation
-library(randomForest) # classification algorithm
-library(caret) #for data-splitting
-library(ggplot2) #visualization
-library(ggthemes) # visualization
-library(pscl) #for pR2
-library(caret) #for data splitting
-library(ROCR) #for ROC plot
+library(dplyr) #bind_rows
+library(caret) #createDataPartition
 source('_featureEngineer.R') #feature engineering
+
 
 #Globals
 FILENAME = 'r_logreg2'
@@ -24,7 +18,7 @@ PROD_RUN = F
 
 plotLearningCurve = function(data) {
   print('Plotting Learning Curve...')
-  
+
   #split data into train and cv
   set.seed(837)
   index = createDataPartition(data$Survived, p=0.8, list=FALSE)
@@ -42,35 +36,35 @@ plotLearningCurve = function(data) {
     if (i %% 100 == 0) print(paste('On training example', i))
 
     trainSubset = trainCv[1:i,]
-    
+
     set.seed(754)
     model = glm(Survived ~., family=binomial(link='logit'), data=trainSubset)
     trainCvPrediction = predict(model, type='response')
     trainCvPrediction = ifelse(trainCvPrediction > 0.5, 1, 0)
     trainErrors[count] = mean(trainCvPrediction != trainSubset$Survived)
-    
+
     cvPrediction = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
     cvPrediction = ifelse(cvPrediction > 0.5, 1, 0)
     cvErrors[count] = mean(cvPrediction != cv$Survived)
     count = count + 1
   }
-  
+
   #save plot
   #png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
   plot(increments, trainErrors, type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
   lines(increments, cvErrors)
   #dev.off()
 
-  
+
   #print final train and cv accuracies
   set.seed(754)
   model = glm(Survived ~., family=binomial(link='logit'), data=trainCv)
-  
+
   #print train accuracy
   trainCvPrediction = predict(model, type='response')
   trainCvPrediction = ifelse(trainCvPrediction > 0.5, 1, 0)
   print(paste('TrainCv accuracy:', (1 - mean(trainCvPrediction != trainCv$Survived))))
-  
+
   #print cv accuracy
   cvPrediction = predict(model, newdata=subset(cv, select=-c(Survived)), type='response')
   cvPrediction = ifelse(cvPrediction > 0.5, 1, 0)

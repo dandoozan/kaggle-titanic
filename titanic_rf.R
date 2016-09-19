@@ -38,9 +38,9 @@
 #D-Use 1 seed (343): r_rf_seed343: 0.82379, 0.79904
 #D-Put the seeds back how they were: r_rf_seedRevert: 0.83502, 0.80861
 
-library(dplyr) # data manipulation
-library(randomForest) # classification algorithm
-library(caret) #data-splitting
+library(dplyr) #bind_rows
+library(randomForest) #classification algorithm
+library(caret) #createDataPartition
 library(ggplot2) #visualization
 library(ggthemes) # visualization
 source('_featureEngineer.R') #feature engineering
