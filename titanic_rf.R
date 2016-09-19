@@ -43,7 +43,6 @@ library(randomForest) #classification algorithm
 library(caret) #createDataPartition
 library(ggplot2) #visualization
 library(ggthemes) # visualization
-source('_featureEngineer.R') #feature engineering
 
 
 #Globals
@@ -128,16 +127,7 @@ plotImportances = function(rf, save=FALSE) {
 
 #============= Main ================
 
-train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
-test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
-full = bind_rows(train, test)
-
-#do feature engineering
-full = featureEngineer(full)
-
-#split the data back into train and test
-train = full[1:nrow(train),]
-test = full[(nrow(train)+1):nrow(full),]
+source('_getData.R') #this gives me train, test, and full, all fully feature engineered
 
 if (PROD_RUN) {
   #plot learning curve
