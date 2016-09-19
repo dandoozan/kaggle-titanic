@@ -15,10 +15,11 @@ library(ggthemes) # visualization
 library(pscl) #for pR2
 library(caret) #for data splitting
 library(ROCR) #for ROC plot
+source('_featureEngineer.R') #feature engineering
 
 #Globals
 FILENAME = 'r_logreg2'
-PROD_RUN = T
+PROD_RUN = F
 
 
 plotLearningCurve = function(data) {
@@ -82,55 +83,8 @@ train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
 test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
 full = bind_rows(train, test)
 
-#manually create factors from some cols
-full$Sex = factor(full$Sex)
-full$Embarked = factor(full$Embarked)
-full$PassengerId = factor(full$PassengerId)
-full$Pclass = factor(full$Pclass)
-
-#create Title feature from Name
-full$Title = gsub('(.*, )|(\\..*)', '', full$Name)
-full$Title[full$Title == 'Mlle' | full$Title == 'Ms'] = 'Miss'
-full$Title[full$Title == 'Mme'] = 'Mrs'
-full$Title[full$Title %in% c('Capt', 'Col', 'Don', 'Dona', 'Dr', 'Jonkheer', 'Lady', 'Major', 'Rev', 'Sir', 'the Countess')] = 'Rare_Title'
-full$Title = factor(full$Title)
-
-#create FamilySize feature
-familySize = (1 + full$SibSp + full$Parch)
-
-#discretize FamilySize: 1=Single, 2-4=Small, >5=Large (these values were arrived at by
-#manually examining the data; families of size 2-4 seem to have a better chance of
-#survival than singletons or large families)
-full$FamilySizeDiscrete = cut(familySize, breaks=c(0, 1, 4, 1000), labels=c('Single', 'Small', 'Large'))
-
-
-#impute missing values in Age, Fare, Embarked
-print('Imputing missing values...')
-set.seed(129)
-mice_imp = mice(subset(full, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
-mice_output = complete(mice_imp)
-full$Age = mice_output$Age
-#full$Age = na.roughfix(full$Age) #tbx
-full$Fare[1044] = 8.05
-full$Embarked[c(62, 830)] = 'C'
-
-
-#discretize Fare
-full$FareDiscrete = cut(full$Fare, c(-1, 50, 10000), labels=c('Low', 'High'))
-
-#create Child feature
-full$Child[full$Age < 18] = 'Child'
-full$Child[full$Age >= 18] = 'Adult'
-full$Child = factor(full$Child)
-
-#create AgeDiscrete feature: 0-6=Young, 7-12=Middle, 13-18=Teen, >18=Adult
-full$AgeDiscrete = cut(full$Age, breaks=c(0, 6, 12, 18, 1000), labels=c('Young', 'Middle', 'Teen', 'Adult'))
-
-#create Mother feature
-full$Mother = 'NotMother'
-full$Mother[full$Sex == 'female' & full$Age > 18 & full$Parch > 0 & full$Title != 'Miss'] = 'Mother'
-full$Mother = factor(full$Mother)
-
+#do feature engineering
+full = featureEngineer(full)
 
 #split the data back into train and test
 train = full[1:nrow(train),]

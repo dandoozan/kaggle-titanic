@@ -132,14 +132,8 @@ train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
 test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
 full = bind_rows(train, test)
 
-#manually create factors from some cols
-full$Sex = factor(full$Sex)
-full$Embarked = factor(full$Embarked)
-full$PassengerId = factor(full$PassengerId)
-full$Pclass = factor(full$Pclass)
-
 #do feature engineering
-full = featureEngineer(full, useMice=TRUE)
+full = featureEngineer(full)
 
 #split the data back into train and test
 train = full[1:nrow(train),]

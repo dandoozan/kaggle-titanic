@@ -1,4 +1,10 @@
-featureEngineer = function(data, useMice=FALSE) {
+featureEngineer = function(data, useMice=TRUE) {
+  #manually create factors from some cols
+  data$Sex = factor(data$Sex)
+  data$Embarked = factor(data$Embarked)
+  data$PassengerId = factor(data$PassengerId)
+  data$Pclass = factor(data$Pclass)
+
   #create Title feature from Name
   data$Title = gsub('(.*, )|(\\..*)', '', data$Name)
   data$Title[data$Title == 'Mlle' | data$Title == 'Ms'] = 'Miss'
