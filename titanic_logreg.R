@@ -1,30 +1,31 @@
 #todo:
-#D-initial logistic regression: r_logreg: accuracy=0.84831, score=0.77512
+#D-initial logistic regression: r_logreg: cvAccuracy=0.84831, score=0.77512
 #D-plot learning curve
 #D-print train accuracy
+#D-set seeds to their initial values so that my results are consistent: r_logreg: cvAccuracy=0.84831, score=0.77512
 #-use trainCv model for final model
 
 
-
-library('dplyr') # data manipulation
-library('mice') # imputation
-library('randomForest') # classification algorithm
-library('caret') #for data-splitting
-library('ggplot2') #visualization
-library('ggthemes') # visualization
+library(dplyr) # data manipulation
+library(mice) # imputation
+library(randomForest) # classification algorithm
+library(caret) #for data-splitting
+library(ggplot2) #visualization
+library(ggthemes) # visualization
 library(pscl) #for pR2
 library(caret) #for data splitting
 library(ROCR) #for ROC plot
 
 #Globals
-FILENAME = 'r_logreg'
-PROD_RUN = F
+FILENAME = 'r_logreg2'
+PROD_RUN = T
 
 
 plotLearningCurve = function(data) {
   print('Plotting Learning Curve...')
   
   #split data into train and cv
+  set.seed(837)
   index = createDataPartition(data$Survived, p=0.8, list=FALSE)
   trainCv = data[index,]
   cv = data[-index,]
@@ -61,6 +62,7 @@ plotLearningCurve = function(data) {
 
   
   #print final train and cv accuracies
+  set.seed(754)
   model = glm(Survived ~., family=binomial(link='logit'), data=trainCv)
   
   #print train accuracy
