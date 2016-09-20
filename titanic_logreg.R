@@ -5,6 +5,9 @@
 #D-set seeds to their initial values so that my results are consistent: r_logreg: cvAccuracy=0.84831, score=0.77512
 #-use trainCv model for final model
 
+#Remove all objects from the current workspace
+rm(list = ls())
+
 
 library(dplyr) #bind_rows
 library(caret) #createDataPartition

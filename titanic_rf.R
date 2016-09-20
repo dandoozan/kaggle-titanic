@@ -38,6 +38,11 @@
 #D-Use 1 seed (343): r_rf_seed343: 0.82379, 0.79904
 #D-Put the seeds back how they were: r_rf_seedRevert: 0.83502, 0.80861
 
+
+#Remove all objects from the current workspace
+rm(list = ls())
+
+
 library(dplyr) #bind_rows
 library(randomForest) #classification algorithm
 library(caret) #createDataPartition
