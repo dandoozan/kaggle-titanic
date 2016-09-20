@@ -154,3 +154,5 @@ if (PROD_RUN) {
   print(paste('Writing solution to file:', outputFilename, '...'))
   write.csv(solution, file=outputFilename, row.names=F)
 }
+
+print('Done!')
