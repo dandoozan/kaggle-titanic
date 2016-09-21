@@ -2,6 +2,7 @@
 
 #todo:
 #D-do simple glmnet: r_glmnet: error=?, score=0.78947
+#-read: https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.html
 #-output the cv error/accuracy
 #-plot learning curve
 #-do more complex glmnet
@@ -12,6 +13,7 @@
 rm(list = ls())
 
 library(glmnet)
+library(Matrix) #sparse.model.matrix
 
 #Globals
 FILENAME = 'r_glmnet'
