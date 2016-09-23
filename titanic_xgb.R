@@ -2,9 +2,8 @@
 #D-do simple xgboost: r_xgb: finalTrainError=0.017957, finalTestError=?, score=0.72727
 #D-use xgb.cv to tune hyperparameters: r_xgb_hyperparam: 0.166388, 0.172898, 0.78947
 #D-plot learning curve
-#-figure out what's wrong with the learning curve
-#-plot feature importances (read: https://cran.r-project.org/web/packages/xgboost/vignettes/discoverYourData.html)
-  #-http://xgboost.readthedocs.io/en/latest/R-package/discoverYourData.html#feature-importance
+#D-figure out what's wrong with the learning curve
+#D-plot feature importances
 #-do more complex xgboost (read: http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html)
 #-perhaps adjust the threshold for 1 vs 0 (from 0.5 to 0.7 or something?)
 #-maybe implement early stopping
@@ -15,6 +14,7 @@ rm(list = ls())
 library(xgboost)
 library(Matrix) #sparse.model.matrix
 library(caret) #createDataPartition
+library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #Globals
 FILENAME = 'r_xgb_hyperparam'
@@ -92,6 +92,13 @@ plotLearningCurve = function(data, params, nrounds) {
   #dev.off()
 }
 
+plotFeatureImportances = function(model, data) {
+  print('Plotting Feature Importances...')
+
+  importances = xgb.importance(feature_names=data@Dimnames[[2]], model=model)
+  print(xgb.plot.importance(importance_matrix=importances))
+}
+
 #============= Main ================
 
 #get data: this gives me train, test, and full, all fully feature engineered
@@ -127,8 +134,7 @@ xgbParams <- list(
 
 #plot cv
 #plotCV(trainSparseMatrix, train$Survived, xgbParams, nrounds, verbose)
-plotLearningCurve(train, xgbParams, nrounds)
-
+#plotLearningCurve(train, xgbParams, nrounds)
 
 #create model
 print('Creating Model...')
@@ -138,6 +144,9 @@ model = xgboost(data=trainSparseMatrix,
                   params=xgbParams,
                   nrounds=nrounds,
                   verbose=verbose)
+
+#plot feature importances
+plotFeatureImportances(model, trainSparseMatrix)
 
 if (PROD_RUN) {
   #Output solution
