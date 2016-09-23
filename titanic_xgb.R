@@ -4,7 +4,7 @@
 #D-plot learning curve
 #-figure out what's wrong with the learning curve
 #-plot feature importances (read: https://cran.r-project.org/web/packages/xgboost/vignettes/discoverYourData.html)
-
+  #-http://xgboost.readthedocs.io/en/latest/R-package/discoverYourData.html#feature-importance
 #-do more complex xgboost (read: http://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html)
 #-perhaps adjust the threshold for 1 vs 0 (from 0.5 to 0.7 or something?)
 #-maybe implement early stopping
@@ -41,41 +41,6 @@ plotCV = function(data, label, params, nrounds, verbose) {
   legend(x='topright', legend=c('train', 'test'), fill=c('blue', 'red'), inset=0.02, text.width=15)
 }
 
-plotLearningCurveUsingXgbCV = function(data, label, params, nrounds) {
-  print('Plotting Learning Curve...')
-
-  incrementSize = 5
-  increments = seq(incrementSize, nrow(data), incrementSize)
-  numIterations = length(increments)
-  trainErrors = numeric(numIterations)
-  cvErrors = numeric(numIterations)
-
-  count = 1
-  for (i in increments) {
-    if (i %% 100 == 0) print(paste('On training example', i))
-    dataSubset = data[1:i,]
-    labelSubset = label[1:i]
-
-    set.seed(754)
-    cvRes <- xgb.cv(data=dataSubset,
-                    label=labelSubset,
-                    params=params,
-                    nfold=5,
-                    nrounds=nrounds,
-                    verbose=0)
-
-    trainErrors[count] = cvRes$train.error.mean[length(cvRes$train.error.mean)]
-    cvErrors[count] = cvRes$test.error.mean[length(cvRes$test.error.mean)]
-
-    count = count + 1
-  }
-
-  #png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
-  plot(increments, trainErrors, type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
-  lines(increments, cvErrors)
-  #dev.off()
-}
-
 plotLearningCurve = function(data, params, nrounds) {
   print('Plotting Learning Curve...')
 
@@ -88,9 +53,9 @@ plotLearningCurve = function(data, params, nrounds) {
   #one hot encode train and cv
   set.seed(634)
   trainSparseMatrix = sparse.model.matrix(Survived~.-1, data=subset(train, select=-c(PassengerId, Name, Ticket, Cabin)))
-  cvSparseMatrix = sparse.model.matrix(~.-1, data=subset(cv, select=-c(PassengerId, Name, Ticket, Cabin)))
+  cvSparseMatrix = sparse.model.matrix(~.-1, data=subset(cv, select=-c(Survived, PassengerId, Name, Ticket, Cabin)))
 
-  incrementSize = 2
+  incrementSize = 5
   increments = seq(incrementSize, nrow(train), incrementSize)
   numIterations = length(increments)
   trainErrors = numeric(numIterations)
@@ -121,8 +86,9 @@ plotLearningCurve = function(data, params, nrounds) {
   }
 
   #png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
-  plot(increments, trainErrors, type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
-  lines(increments, cvErrors)
+  plot(increments, trainErrors, col='red', type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
+  lines(increments, cvErrors, col='blue')
+  legend('topright', legend=c('train', 'cv'), fill=c('red', 'blue'), inset=.02, text.width=100)
   #dev.off()
 }
 
@@ -161,7 +127,6 @@ xgbParams <- list(
 
 #plot cv
 #plotCV(trainSparseMatrix, train$Survived, xgbParams, nrounds, verbose)
-#plotLearningCurveUsingXgbCV(trainSparseMatrix, train$Survived, xgbParams, nrounds)
 plotLearningCurve(train, xgbParams, nrounds)
 
 
