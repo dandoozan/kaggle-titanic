@@ -131,7 +131,11 @@ plotImportances = function(rf, save=FALSE) {
 
 #============= Main ================
 
-source('_getData.R') #this gives me train, test, and full, all fully feature engineered
+source('_getData.R')
+data = getData()
+train = data$train
+test = data$test
+full = data$full
 
 if (PROD_RUN) {
   #plot learning curve

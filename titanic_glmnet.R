@@ -7,7 +7,7 @@
 #-plot learning curve
 #-do more complex glmnet
 #-change the s param in predict to use other metrics (other than lambda.min)
-
+#-try it without additional features
 
 #Remove all objects from the current workspace
 rm(list = ls())
@@ -17,12 +17,15 @@ library(Matrix) #sparse.model.matrix
 
 #Globals
 FILENAME = 'r_glmnet'
-PROD_RUN = T
+PROD_RUN = F
 
 #============= Main ================
 
-#get data: this gives me train, test, and full, all fully feature engineered
 source('_getData.R')
+data = getData()
+train = data$train
+test = data$test
+full = data$full
 
 #one hot encode factor variables, and convert it to matrix
 set.seed(634)

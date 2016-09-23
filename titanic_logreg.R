@@ -75,7 +75,11 @@ plotLearningCurve = function(data) {
 
 #============= Main ================
 
-source('_getData.R') #this gives me train, test, and full, all fully feature engineered
+source('_getData.R')
+data = getData()
+train = data$train
+test = data$test
+full = data$full
 
 #remove unused cols from train so that the logistic regression call is smoother
 train = subset(train, select=-c(PassengerId, Name, Ticket, Cabin))

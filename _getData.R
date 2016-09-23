@@ -1,15 +1,20 @@
-#This file provides the user with: train, test, and full.
-#All data sets are fully feature-engineered
-
 library(dplyr) #bind_rows
 
-featureEngineer = function(data) {
-  #manually create factors from some cols
-  data$Sex = factor(data$Sex)
-  data$Embarked = factor(data$Embarked)
-  data$PassengerId = factor(data$PassengerId)
-  data$Pclass = factor(data$Pclass)
+featureEngineerSimple = function(data) {
+  #impute missing values in Age, Fare, Embarked
+  print('Imputing missing values...')
+  require(mice)
+  set.seed(129)
+  mice_imp = mice(subset(data, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
+  mice_output = complete(mice_imp)
+  data$Age = mice_output$Age
+  data$Fare = mice_output$Fare
+  data$Embarked = mice_output$Embarked
 
+  return(data)
+}
+
+featureEngineer = function(data) {
   #create Title feature from Name
   data$Title = gsub('(.*, )|(\\..*)', '', data$Name)
   data$Title[data$Title == 'Mlle' | data$Title == 'Ms'] = 'Miss'
@@ -28,7 +33,7 @@ featureEngineer = function(data) {
 
   #impute missing values in Age, Fare, Embarked
   print('Imputing missing values...')
-  #set data$Age to values precomputed using mice
+  #set them to values precomputed using mice so that I don't have to run mice every time
   data$Age = c(22.00, 38.00, 26.00, 35.00, 35.00, 25.00, 54.00, 2.00, 27.00, 14.00, 4.00, 58.00, 20.00, 39.00, 14.00, 55.00, 2.00, 34.00, 31.00, 19.00, 35.00, 34.00, 15.00, 28.00, 8.00, 38.00, 30.00, 19.00, 36.00, 45.00, 40.00, 48.00, 18.00, 66.00, 28.00, 42.00, 32.50, 21.00, 18.00, 14.00, 40.00, 27.00, 21.00, 3.00, 19.00, 26.00, 32.00, 22.00, 20.00, 18.00,
                7.00, 21.00, 49.00, 29.00, 65.00, 21.00, 21.00, 28.50, 5.00, 11.00, 22.00, 38.00, 45.00, 4.00, 25.00, 0.42, 29.00, 19.00, 17.00, 26.00, 32.00, 16.00, 21.00, 26.00, 32.00, 25.00, 24.00, 35.00, 0.83, 30.00, 22.00, 29.00, 23.00, 28.00, 17.00, 33.00, 16.00, 36.00, 23.00, 24.00, 29.00, 20.00, 46.00, 26.00, 59.00, 27.00, 71.00, 23.00, 34.00, 34.00,
                28.00, 31.00, 21.00, 33.00, 37.00, 28.00, 21.00, 20.00, 38.00, 15.00, 47.00, 14.50, 22.00, 20.00, 17.00, 21.00, 70.50, 29.00, 24.00, 2.00, 21.00, 21.00, 32.50, 32.50, 54.00, 12.00, 33.00, 24.00, 9.00, 45.00, 33.00, 20.00, 47.00, 29.00, 25.00, 23.00, 19.00, 37.00, 16.00, 24.00, 26.00, 22.00, 24.00, 19.00, 18.00, 19.00, 27.00, 9.00, 36.50, 42.00,
@@ -56,12 +61,6 @@ featureEngineer = function(data) {
                45.00, 18.00, 22.00, 32.00, 37.00, 55.00, 17.00, 57.00, 19.00, 27.00, 22.00, 26.00, 25.00, 26.00, 33.00, 39.00, 23.00, 12.00, 46.00, 29.00, 21.00, 48.00, 39.00, 36.00, 19.00, 27.00, 30.00, 32.00, 39.00, 25.00, 40.00, 18.00, 32.00, 14.50, 58.00, 17.00, 16.00, 26.00, 38.00, 24.00, 31.00, 45.00, 25.00, 18.00, 49.00, 0.17, 50.00, 59.00, 21.00, 39.00,
                30.00, 14.50, 24.00, 31.00, 27.00, 25.00, 48.00, 31.00, 22.00, 45.00, 29.00, 21.00, 31.00, 49.00, 44.00, 54.00, 45.00, 22.00, 21.00, 55.00, 5.00, 70.50, 26.00, 36.00, 19.00, 34.00, 24.00, 24.00, 57.00, 21.00, 6.00, 23.00, 51.00, 13.00, 47.00, 29.00, 18.00, 24.00, 48.00, 22.00, 31.00, 30.00, 38.00, 22.00, 17.00, 43.00, 20.00, 23.00, 50.00, 37.00,
                3.00, 23.00, 37.00, 28.00, 21.00, 39.00, 38.50, 16.00, 0.75)
-  #require(mice)
-  #set.seed(129)
-  #mice_imp = mice(subset(data, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
-  #mice_output = complete(mice_imp)
-  #data$Age = mice_output$Age
-  #data$Age = na.roughfix(data$Age) #tbx
   data$Fare[1044] = 8.05
   data$Embarked[c(62, 830)] = 'C'
 
@@ -84,15 +83,25 @@ featureEngineer = function(data) {
   return(data)
 }
 
-#read data from file
-train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
-test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
-full = bind_rows(train, test)
+getData = function(simple=FALSE) {
+  #read data from file
+  train = read.csv('data/train.csv', stringsAsFactors=F, na.strings=c(''))
+  test = read.csv('data/test.csv', stringsAsFactors=F, na.strings=c(''))
+  full = bind_rows(train, test)
 
-#do feature engineering
-full = featureEngineer(full)
+  #manually create factors from some cols
+  data$Sex = factor(data$Sex)
+  data$Embarked = factor(data$Embarked)
+  data$PassengerId = factor(data$PassengerId)
+  data$Pclass = factor(data$Pclass)
 
-#split the data back into train and test
-train = full[1:nrow(train),]
-test = full[(nrow(train)+1):nrow(full), names(full) != 'Survived']
+  #do feature engineering
+  full = if(simple) featureEngineerSimple(full) else featureEngineer(full)
+
+  #split the data back into train and test
+  train = full[1:nrow(train),]
+  test = full[(nrow(train)+1):nrow(full), names(full) != 'Survived']
+
+  return(list(train=train, test=test, full=full))
+}
 
