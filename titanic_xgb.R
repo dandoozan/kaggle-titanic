@@ -6,6 +6,7 @@
 #D-plot feature importances
 #D-try xgboost without additional features: r_xgb_simple: 0.168359, 0.194152, 0.76077
 #D-use xgb.train instead of xgboost: r_xgb_simple2: 0.168359, 0.194152, 0.76077
+#D-Add back additional features: r_xgb_addfeatures: 0.166388, 0.172898, 0.78947
 #-try different booster options
 #-perhaps adjust the threshold for 1 vs 0 (from 0.5 to 0.7 or something?)
 #-maybe implement early stopping
@@ -20,7 +21,7 @@ library(caret) #createDataPartition
 library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #Globals
-FILENAME = 'r_xgb_simple2'
+FILENAME = 'r_xgb_addfeatures'
 PROD_RUN = T
 THRESHOLD = 0.5
 
@@ -101,7 +102,7 @@ plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
 #============= Main ================
 
 source('_getData.R')
-data = getData(simple=TRUE)
+data = getData()
 train = data$train
 test = data$test
 full = data$full
