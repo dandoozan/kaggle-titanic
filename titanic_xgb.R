@@ -7,7 +7,7 @@
 #D-try xgboost without additional features: r_xgb_simple: 0.168359, 0.194152, 0.76077
 #D-use xgb.train instead of xgboost: r_xgb_simple2: 0.168359, 0.194152, 0.76077
 #D-Add back additional features: r_xgb_addfeatures: 0.166388, 0.172898, 0.78947
-#-try different booster options
+#D-try gblinear booster: r_xgb_gblinear: 0.170594, 0.182941, 0.77033
 #-perhaps adjust the threshold for 1 vs 0 (from 0.5 to 0.7 or something?)
 #-maybe implement early stopping
 
@@ -21,7 +21,7 @@ library(caret) #createDataPartition
 library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #Globals
-FILENAME = 'r_xgb_addfeatures'
+FILENAME = 'r_xgb_gblinear'
 PROD_RUN = T
 THRESHOLD = 0.5
 
@@ -117,10 +117,10 @@ testSparseMatrix = sparse.model.matrix(~.-1, data=subset(test, select=-c(Passeng
 nrounds = 100
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-    'eta'=0.001, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+    #'eta'=0.001, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
     #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
-    'max_depth'=3, #Lower value=less overfitting
+    'max_depth'=6, #Lower value=less overfitting
 
     #range=[0,∞], default=1, toTry=1,3,5,7
     'min_child_weight'=1, #Larger value=less overfitting
@@ -129,10 +129,10 @@ xgbParams = list(
     'subsample'=1, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree
+    'colsample_bytree'=1, #ratio of cols (features) to use in each tree
 
     #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
-    #'booster'='gblinear', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
+    'booster'='gblinear', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
 
     'objective'='binary:logistic'
   )
@@ -162,7 +162,7 @@ model = xgb.train(data=trainDMatrix,
                   verbose=0)
 
 #plot feature importances
-plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
+#plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
 
 if (PROD_RUN) {
   #Output solution
