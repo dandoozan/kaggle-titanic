@@ -90,10 +90,10 @@ getData = function(simple=FALSE) {
   full = bind_rows(train, test)
 
   #manually create factors from some cols
-  data$Sex = factor(data$Sex)
-  data$Embarked = factor(data$Embarked)
-  data$PassengerId = factor(data$PassengerId)
-  data$Pclass = factor(data$Pclass)
+  full$Sex = factor(full$Sex)
+  full$Embarked = factor(full$Embarked)
+  full$PassengerId = factor(full$PassengerId)
+  full$Pclass = factor(full$Pclass)
 
   #do feature engineering
   full = if(simple) featureEngineerSimple(full) else featureEngineer(full)
