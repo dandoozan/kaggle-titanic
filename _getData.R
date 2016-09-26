@@ -2,7 +2,7 @@ library(dplyr) #bind_rows
 
 featureEngineerSimple = function(data) {
   #impute missing values in Age, Fare, Embarked
-  print('Imputing missing values...')
+  cat('Imputing missing values...\n')
   require(mice)
   set.seed(129)
   mice_imp = mice(subset(data, select=-c(PassengerId, Name, Ticket, Cabin, Survived)), method='rf', printFlag=F)
@@ -32,7 +32,7 @@ featureEngineer = function(data) {
 
 
   #impute missing values in Age, Fare, Embarked
-  print('Imputing missing values...')
+  cat('Imputing missing values...\n')
   #set them to values precomputed using mice so that I don't have to run mice every time
   data$Age = c(22.00, 38.00, 26.00, 35.00, 35.00, 25.00, 54.00, 2.00, 27.00, 14.00, 4.00, 58.00, 20.00, 39.00, 14.00, 55.00, 2.00, 34.00, 31.00, 19.00, 35.00, 34.00, 15.00, 28.00, 8.00, 38.00, 30.00, 19.00, 36.00, 45.00, 40.00, 48.00, 18.00, 66.00, 28.00, 42.00, 32.50, 21.00, 18.00, 14.00, 40.00, 27.00, 21.00, 3.00, 19.00, 26.00, 32.00, 22.00, 20.00, 18.00,
                7.00, 21.00, 49.00, 29.00, 65.00, 21.00, 21.00, 28.50, 5.00, 11.00, 22.00, 38.00, 45.00, 4.00, 25.00, 0.42, 29.00, 19.00, 17.00, 26.00, 32.00, 16.00, 21.00, 26.00, 32.00, 25.00, 24.00, 35.00, 0.83, 30.00, 22.00, 29.00, 23.00, 28.00, 17.00, 33.00, 16.00, 36.00, 23.00, 24.00, 29.00, 20.00, 46.00, 26.00, 59.00, 27.00, 71.00, 23.00, 34.00, 34.00,

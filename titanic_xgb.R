@@ -9,8 +9,8 @@
 #D-Add back additional features: r_xgb_addfeatures: 0.166388, 0.172898, 0.78947
 #D-try gblinear booster: r_xgb_gblinear: 0.170594, 0.182941, 0.77033
 #D-go back to booster=gbtree: r_xgb_gbtree: 0.166388, 0.172898, 0.78947
-#D-tune hyperparams again: r_xgb_tune: 0.165826, 0.170638, 0.78947
-#-maybe implement early stopping
+#D-tune hyperparams again (nrounds=34, subsample=0.8): r_xgb_tune: 0.165826, 0.170638, 0.78947
+#D-set nrounds based on early stopping: r_xgb_tune2: nrounds=30, 0.166108, 0.169521, 0.78947
 
 
 #Remove all objects from the current workspace
@@ -22,14 +22,14 @@ library(caret) #createDataPartition
 library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #Globals
-FILENAME = 'r_xgb_tune'
+FILENAME = 'r_xgb_tune2'
 PROD_RUN = T
 THRESHOLD = 0.5
 
 #================= Functions ===================
 
 plotCVErrorRates = function(cvRes, save=FALSE) {
-  print('Plotting CV Error Rates...')
+  cat('Plotting CV error rates...\n')
   if (save) png(paste0('ErrorRates_', FILENAME, '.png'), width=500, height=350)
   plot(cvRes$train.error.mean, type='l', ylim = c(min(cvRes$train.error.mean, cvRes$test.error.mean), max(cvRes$train.error.mean, cvRes$test.error.mean)), col='blue', main='Train Error vs. CV Error', xlab='Num Rounds', ylab='Error')
   lines(cvRes$test.error.mean, col='red')
@@ -38,7 +38,7 @@ plotCVErrorRates = function(cvRes, save=FALSE) {
 }
 
 plotLearningCurve = function(data, params, nrounds, save=FALSE) {
-  print('Plotting Learning Curve...')
+  cat('Plotting learning curve...\n')
 
   #split data into train and cv
   set.seed(837)
@@ -92,7 +92,7 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
 }
 
 plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
-  print('Plotting Feature Importances...')
+  cat('Plotting feature importances...\n')
 
   importances = xgb.importance(feature_names=dataAsSparseMatrix@Dimnames[[2]], model=model)
   if (save) png(paste0('Importances_', FILENAME, '.png'), width=500, height=350)
@@ -115,7 +115,9 @@ trainDMatrix = xgb.DMatrix(data=trainSparseMatrix, label=train$Survived)
 testSparseMatrix = sparse.model.matrix(~.-1, data=subset(test, select=-c(PassengerId, Name, Ticket, Cabin)))
 
 #set hyper params
-nrounds = 34
+nrounds = 1000
+early.stop.round = 10
+maximize = FALSE
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
     'eta'=0.001, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
@@ -130,7 +132,7 @@ xgbParams = list(
     'subsample'=0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree. I think lower value=less overfitting
+    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree. Lower value=less overfitting
 
     #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
     'booster'='gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
@@ -139,25 +141,33 @@ xgbParams = list(
   )
 
 #run cv
-print('Computing CV Error...')
+cat('Finding best nrounds out of ', nrounds, '...\n    ', sep='')
 set.seed(754)
-cvRes <- xgb.cv(data=trainDMatrix,
+output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
                 params=xgbParams,
                 nfold=5,
                 nrounds=nrounds,
                 showsd=F,
-                verbose=0)
-print(paste('Final Train Error:', cvRes$train.error.mean[length(cvRes$train.error.mean)]))
-print(paste('Final CV Error:', cvRes$test.error.mean[length(cvRes$test.error.mean)]))
-
-if (PROD_RUN) {
-  #plots
-  plotCVErrorRates(cvRes, save=PROD_RUN)
-  plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
+                early.stop.round=early.stop.round,
+                maximize=maximize,
+                verbose=0))
+didStopEarly = (length(output) > 0)
+if (didStopEarly) {
+  nrounds = strtoi(substr(output, 27, nchar(output)))
+  cat('Stopped early. ')
 }
+cat('Best nrounds=', nrounds, '\n', sep='')
+cat('Train, CV errors: ', cvRes$train.error.mean[nrounds], ', ', cvRes$test.error.mean[nrounds], '\n', sep='')
+
+#change this to specify which chart to plot, or set to NULL for none
+#cv=cv errors, lc=learning curve, fi=feature importances
+toPlot = 'fi'
+
+if (PROD_RUN || toPlot=='cv') plotCVErrorRates(cvRes, save=PROD_RUN)
+if (PROD_RUN || toPlot=='lc') plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
 
 #create model
-print('Creating Model...')
+cat('Creating Model...\n')
 set.seed(754)
 model = xgb.train(data=trainDMatrix,
                   params=xgbParams,
@@ -165,7 +175,7 @@ model = xgb.train(data=trainDMatrix,
                   verbose=0)
 
 #plot feature importances
-plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
+if (PROD_RUN || toPlot=='fi') plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
 
 if (PROD_RUN) {
   #Output solution
@@ -173,8 +183,8 @@ if (PROD_RUN) {
   prediction = as.numeric(prediction > THRESHOLD)
   solution = data.frame(PassengerID = test$PassengerId, Survived = prediction)
   outputFilename = paste0(FILENAME, '.csv')
-  print(paste('Writing solution to file:', outputFilename, '...'))
+  cat('Writing solution to file: ', outputFilename, '...\n', sep='')
   write.csv(solution, file=outputFilename, row.names=F)
 }
 
-print('Done!')
+cat('Done!\n')
