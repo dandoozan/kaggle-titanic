@@ -9,7 +9,7 @@
 #D-Add back additional features: r_xgb_addfeatures: 0.166388, 0.172898, 0.78947
 #D-try gblinear booster: r_xgb_gblinear: 0.170594, 0.182941, 0.77033
 #D-go back to booster=gbtree: r_xgb_gbtree: 0.166388, 0.172898, 0.78947
-#-perhaps adjust the threshold for 1 vs 0 (from 0.5 to 0.7 or something?)
+#D-tune hyperparams again: r_xgb_tune: 0.165826, 0.170638, 0.78947
 #-maybe implement early stopping
 
 
@@ -22,22 +22,22 @@ library(caret) #createDataPartition
 library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #Globals
-FILENAME = 'r_xgb_gbtree'
+FILENAME = 'r_xgb_tune'
 PROD_RUN = T
 THRESHOLD = 0.5
 
 #================= Functions ===================
 
-plotCVErrorRates = function(cvRes) {
+plotCVErrorRates = function(cvRes, save=FALSE) {
   print('Plotting CV Error Rates...')
-  png(paste0('ErrorRates_', FILENAME, '.png'), width=500, height=350)
+  if (save) png(paste0('ErrorRates_', FILENAME, '.png'), width=500, height=350)
   plot(cvRes$train.error.mean, type='l', ylim = c(min(cvRes$train.error.mean, cvRes$test.error.mean), max(cvRes$train.error.mean, cvRes$test.error.mean)), col='blue', main='Train Error vs. CV Error', xlab='Num Rounds', ylab='Error')
   lines(cvRes$test.error.mean, col='red')
   legend(x='topright', legend=c('train', 'cv'), fill=c('blue', 'red'), inset=0.02, text.width=15)
-  dev.off()
+  if (save) dev.off()
 }
 
-plotLearningCurve = function(data, params, nrounds) {
+plotLearningCurve = function(data, params, nrounds, save=FALSE) {
   print('Plotting Learning Curve...')
 
   #split data into train and cv
@@ -84,11 +84,11 @@ plotLearningCurve = function(data, params, nrounds) {
     count = count + 1
   }
 
-  png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
+  if (save) png(paste0('LearningCurve_', FILENAME, '.png'), width=500, height=350)
   plot(increments, trainErrors, col='blue', type='l', ylim = c(0, max(cvErrors)), main='Learning Curve', xlab = "Number of Training Examples", ylab = "Error")
   lines(increments, cvErrors, col='red')
   legend('topright', legend=c('train', 'cv'), fill=c('blue', 'red'), inset=.02, text.width=100)
-  dev.off()
+  if (save) dev.off()
 }
 
 plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
@@ -115,7 +115,7 @@ trainDMatrix = xgb.DMatrix(data=trainSparseMatrix, label=train$Survived)
 testSparseMatrix = sparse.model.matrix(~.-1, data=subset(test, select=-c(PassengerId, Name, Ticket, Cabin)))
 
 #set hyper params
-nrounds = 100
+nrounds = 34
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
     'eta'=0.001, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
@@ -127,10 +127,10 @@ xgbParams = list(
     'min_child_weight'=1, #Larger value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'subsample'=1, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
+    'subsample'=0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree
+    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree. I think lower value=less overfitting
 
     #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
     'booster'='gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
@@ -139,19 +139,21 @@ xgbParams = list(
   )
 
 #run cv
+print('Computing CV Error...')
 set.seed(754)
 cvRes <- xgb.cv(data=trainDMatrix,
                 params=xgbParams,
                 nfold=5,
                 nrounds=nrounds,
+                showsd=F,
                 verbose=0)
 print(paste('Final Train Error:', cvRes$train.error.mean[length(cvRes$train.error.mean)]))
 print(paste('Final CV Error:', cvRes$test.error.mean[length(cvRes$test.error.mean)]))
 
 if (PROD_RUN) {
   #plots
-  plotCVErrorRates(cvRes)
-  plotLearningCurve(train, xgbParams, nrounds)
+  plotCVErrorRates(cvRes, save=PROD_RUN)
+  plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
 }
 
 #create model
