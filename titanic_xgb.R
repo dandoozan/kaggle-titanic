@@ -11,6 +11,7 @@
 #D-go back to booster=gbtree: r_xgb_gbtree: 0.166388, 0.172898, 0.78947
 #D-tune hyperparams again (nrounds=34, subsample=0.8): r_xgb_tune: 0.165826, 0.170638, 0.78947
 #D-set nrounds based on early stopping: r_xgb_tune2: nrounds=30, 0.166108, 0.169521, 0.78947
+#-remove -1 from sparse.model.matrix: r_xgb_smmNo-1: 28, 0.165547, 0.168397, 0.79426
 
 
 #Remove all objects from the current workspace
@@ -20,11 +21,6 @@ library(xgboost)
 library(Matrix) #sparse.model.matrix
 library(caret) #createDataPartition
 library(Ckmeans.1d.dp) #xgb.plot.importance
-
-#Globals
-FILENAME = 'r_xgb_tune2'
-PROD_RUN = T
-THRESHOLD = 0.5
 
 #================= Functions ===================
 
@@ -48,7 +44,7 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
 
   #one hot encode cv
   set.seed(634)
-  cvSparseMatrix = sparse.model.matrix(~.-1, data=subset(cv, select=-c(Survived, PassengerId, Name, Ticket, Cabin)))
+  cvSparseMatrix = sparse.model.matrix(~., data=subset(cv, select=-c(Survived, PassengerId, Name, Ticket, Cabin)))
   cvDMatrix <- xgb.DMatrix(data=cvSparseMatrix, label=cv$Survived)
 
   incrementSize = 5
@@ -64,7 +60,7 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
 
     #one hot encode train subset
     set.seed(634)
-    trainSparseMatrix = sparse.model.matrix(Survived~.-1, data=subset(trainSubset, select=-c(PassengerId, Name, Ticket, Cabin)))
+    trainSparseMatrix = sparse.model.matrix(Survived~., data=subset(trainSubset, select=-c(PassengerId, Name, Ticket, Cabin)))
     trainDMatrix <- xgb.DMatrix(data=trainSparseMatrix, label=trainSubset$Survived)
 
     set.seed(754)
@@ -102,6 +98,13 @@ plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
 
 #============= Main ================
 
+#Globals
+FILENAME = 'r_xgb_smmNo-1'
+PROD_RUN = T
+THRESHOLD = 0.5
+TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
+PRINT_CV = F
+
 source('_getData.R')
 data = getData()
 train = data$train
@@ -110,13 +113,13 @@ full = data$full
 
 #one hot encode factor variables, and convert to matrix
 set.seed(634)
-trainSparseMatrix = sparse.model.matrix(Survived~.-1, data=subset(train, select=-c(PassengerId, Name, Ticket, Cabin)))
+trainSparseMatrix = sparse.model.matrix(Survived~., data=subset(train, select=-c(PassengerId, Name, Ticket, Cabin)))
 trainDMatrix = xgb.DMatrix(data=trainSparseMatrix, label=train$Survived)
-testSparseMatrix = sparse.model.matrix(~.-1, data=subset(test, select=-c(PassengerId, Name, Ticket, Cabin)))
+testSparseMatrix = sparse.model.matrix(~., data=subset(test, select=-c(PassengerId, Name, Ticket, Cabin)))
 
 #set hyper params
 nrounds = 1000
-early.stop.round = 10
+early.stop.round = 50
 maximize = FALSE
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
@@ -143,28 +146,33 @@ xgbParams = list(
 #run cv
 cat('Finding best nrounds out of ', nrounds, '...\n    ', sep='')
 set.seed(754)
-output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
-                params=xgbParams,
-                nfold=5,
-                nrounds=nrounds,
-                showsd=F,
-                early.stop.round=early.stop.round,
-                maximize=maximize,
-                verbose=0))
-didStopEarly = (length(output) > 0)
-if (didStopEarly) {
-  nrounds = strtoi(substr(output, 27, nchar(output)))
-  cat('Stopped early. ')
+if (PRINT_CV) {
+  cvRes <- xgb.cv(data=trainDMatrix,
+                  params=xgbParams,
+                  nfold=5,
+                  nrounds=100,
+                  showsd=F,
+                  verbose=1)
+} else {
+  output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
+                  params=xgbParams,
+                  nfold=5,
+                  nrounds=nrounds,
+                  showsd=F,
+                  early.stop.round=early.stop.round,
+                  maximize=maximize,
+                  verbose=0))
+  didStopEarly = (length(output) > 0)
+  if (didStopEarly) {
+    nrounds = strtoi(substr(output, 27, nchar(output)))
+    cat('Stopped early. ')
+  }
 }
 cat('Best nrounds=', nrounds, '\n', sep='')
 cat('Train, CV errors: ', cvRes$train.error.mean[nrounds], ', ', cvRes$test.error.mean[nrounds], '\n', sep='')
 
-#change this to specify which chart to plot, or set to NULL for none
-#cv=cv errors, lc=learning curve, fi=feature importances
-toPlot = 'fi'
-
-if (PROD_RUN || toPlot=='cv') plotCVErrorRates(cvRes, save=PROD_RUN)
-if (PROD_RUN || toPlot=='lc') plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
+if (PROD_RUN || TO_PLOT=='cv') plotCVErrorRates(cvRes, save=PROD_RUN)
+if (PROD_RUN || TO_PLOT=='lc') plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
 
 #create model
 cat('Creating Model...\n')
@@ -175,7 +183,7 @@ model = xgb.train(data=trainDMatrix,
                   verbose=0)
 
 #plot feature importances
-if (PROD_RUN || toPlot=='fi') plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
+if (PROD_RUN || TO_PLOT=='fi') plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
 
 if (PROD_RUN) {
   #Output solution
