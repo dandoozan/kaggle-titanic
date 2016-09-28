@@ -13,7 +13,7 @@
 #D-set nrounds based on early stopping: r_xgb_tune2: nrounds=30, 0.166108, 0.169521, 0.78947
 #D-remove -1 from sparse.model.matrix: r_xgb_smmNo-1: 28, 0.165547, 0.168397, 0.79426
 #D-tune eta=.02: r_xgb_eta02: 47, 0.164425, 0.167274, 0.79426
-#-tune eta=.01:
+#D-tune eta=.01: r_xgb_eta01: 28, 0.165266, 0.168397, 0.79426
 
 #Remove all objects from the current workspace
 rm(list = ls())
