@@ -11,11 +11,14 @@
 #D-go back to booster=gbtree: r_xgb_gbtree: 0.166388, 0.172898, 0.78947
 #D-tune hyperparams again (nrounds=34, subsample=0.8): r_xgb_tune: 0.165826, 0.170638, 0.78947
 #D-set nrounds based on early stopping: r_xgb_tune2: nrounds=30, 0.166108, 0.169521, 0.78947
-#-remove -1 from sparse.model.matrix: r_xgb_smmNo-1: 28, 0.165547, 0.168397, 0.79426
+#D-remove -1 from sparse.model.matrix: r_xgb_smmNo-1: 28, 0.165547, 0.168397, 0.79426
+#D-tune eta=.02: r_xgb_eta02: 47, 0.164425, 0.167274, 0.79426
 
 
 #Remove all objects from the current workspace
 rm(list = ls())
+
+FILENAME = 'r_xgb_eta02'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -27,7 +30,7 @@ library(Ckmeans.1d.dp) #xgb.plot.importance
 plotCVErrorRates = function(cvRes, save=FALSE) {
   cat('Plotting CV error rates...\n')
   if (save) png(paste0('ErrorRates_', FILENAME, '.png'), width=500, height=350)
-  plot(cvRes$train.error.mean, type='l', ylim = c(min(cvRes$train.error.mean, cvRes$test.error.mean), max(cvRes$train.error.mean, cvRes$test.error.mean)), col='blue', main='Train Error vs. CV Error', xlab='Num Rounds', ylab='Error')
+  plot(cvRes$train.error.mean, type='l', ylim = c(0.12, 0.2), col='blue', main='Train Error vs. CV Error', xlab='Num Rounds', ylab='Error')
   lines(cvRes$test.error.mean, col='red')
   legend(x='topright', legend=c('train', 'cv'), fill=c('blue', 'red'), inset=0.02, text.width=15)
   if (save) dev.off()
@@ -99,7 +102,6 @@ plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
 #============= Main ================
 
 #Globals
-FILENAME = 'r_xgb_smmNo-1'
 PROD_RUN = T
 THRESHOLD = 0.5
 TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
@@ -119,11 +121,11 @@ testSparseMatrix = sparse.model.matrix(~., data=subset(test, select=-c(Passenger
 
 #set hyper params
 nrounds = 1000
-early.stop.round = 50
+early.stop.round = 100
 maximize = FALSE
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-    'eta'=0.001, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+    'eta'=0.02, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
     #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
     'max_depth'=3, #Lower value=less overfitting
@@ -151,14 +153,12 @@ if (PRINT_CV) {
                   params=xgbParams,
                   nfold=5,
                   nrounds=100,
-                  showsd=F,
                   verbose=1)
 } else {
   output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
                   params=xgbParams,
                   nfold=5,
                   nrounds=nrounds,
-                  showsd=F,
                   early.stop.round=early.stop.round,
                   maximize=maximize,
                   verbose=0))
