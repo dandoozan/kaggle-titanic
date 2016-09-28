@@ -15,11 +15,12 @@
 #D-tune eta=.02: r_xgb_eta02: 47, 0.164425, 0.167274, 0.79426
 #D-tune eta=.01: r_xgb_eta01: 28, 0.165266, 0.168397, 0.79426
 #D-tune maxDepth=4: r_xgb_maxdepth4: 19, 0.15825, 0.165007, 0.79426
+#D-tune maxDepth=5: r_xgb_maxdepth5: 23, 0.142536, 0.161643, 0.79904
 
 #Remove all objects from the current workspace
 rm(list = ls())
 
-FILENAME = 'r_xgb_maxdepth4'
+FILENAME = 'r_xgb_maxdepth5'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -129,7 +130,7 @@ xgbParams = list(
     'eta'=0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
     #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
-    'max_depth'=4, #Lower value=less overfitting
+    'max_depth'=5, #Lower value=less overfitting
 
     #range=[0,∞], default=1, toTry=1,3,5,7
     'min_child_weight'=1, #Larger value=less overfitting
