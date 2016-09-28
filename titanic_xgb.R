@@ -18,13 +18,12 @@
 #D-tune maxDepth=5: r_xgb_maxdepth5: 23, 0.142536, 0.161643, 0.79904
 #D-tune maxDepth=4, minChildWeight=0: 19, 0.156004, 0.163903, 0.79426
 #D-tune gamma=2.5:r_xgb_gamma: 9, 0.152928, 0.160532, 0.79426
-#D-find best seed (seed=284): r_xgb_bestSeed: 367, 0.109149, 0.150401, 0.79904
+#D-find best seed: r_xgb_bestSeed: seed=284, 367, 0.109149, 0.150401, 0.79904
+#D-use best seed out of 10: r_xgb_bestSeed2: 717, 103, 0.133838, 0.155943, 0.79904
 #-tune params using avg of many seeds
 
 #Remove all objects from the current workspace
 rm(list = ls())
-
-FILENAME = 'r_xgb_bestSeed'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -33,8 +32,16 @@ library(Ckmeans.1d.dp) #xgb.plot.importance
 
 #================= Functions ===================
 
-plotCVErrorRates = function(cvRes, save=FALSE) {
+plotCVErrorRates = function(dataAsDMatrix, params, nrounds, seed, save=FALSE) {
   cat('Plotting CV error rates...\n')
+
+  set.seed(seed)
+  cvRes = xgb.cv(data=dataAsDMatrix,
+      params=params,
+      nfold=5,
+      nrounds=(nrounds * 1.5), #times by 1.5 to plot a little extra
+      verbose=0)
+
   if (save) png(paste0('ErrorRates_', FILENAME, '.png'), width=500, height=350)
   plot(cvRes$train.error.mean, type='l', ylim = c(0.12, 0.2), col='blue', main='Train Error vs. CV Error', xlab='Num Rounds', ylab='Error')
   lines(cvRes$test.error.mean, col='red')
@@ -42,7 +49,7 @@ plotCVErrorRates = function(cvRes, save=FALSE) {
   if (save) dev.off()
 }
 
-plotLearningCurve = function(data, params, nrounds, save=FALSE) {
+plotLearningCurve = function(data, params, nrounds, seed, save=FALSE) {
   cat('Plotting learning curve...\n')
 
   #split data into train and cv
@@ -64,7 +71,7 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
 
   count = 1
   for (i in increments) {
-    if (i %% 100 == 0) print(paste('On training example', i))
+    if (i %% 100 == 0) cat('    On training example', i, '\n')
     trainSubset = train[1:i,]
 
     #one hot encode train subset
@@ -72,7 +79,7 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
     trainSparseMatrix = sparse.model.matrix(Survived~., data=subset(trainSubset, select=-c(PassengerId, Name, Ticket, Cabin)))
     trainDMatrix <- xgb.DMatrix(data=trainSparseMatrix, label=trainSubset$Survived)
 
-    set.seed(SEED)
+    set.seed(seed)
     model = xgb.train(data=trainDMatrix,
         params=params,
         nrounds=nrounds,
@@ -105,48 +112,57 @@ plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
   if (save) dev.off()
 }
 
-findBestSeed = function(dataAsDMatrix, params, nrounds, early.stop.round, maximize) {
-  cat('Finding best seed...\n')
+findBestSeedAndNrounds = function(dataAsDMatrix, params) {
+  numSeedsToTry = 10
+  cat('Finding best seed and nrounds.  Trying ', numSeedsToTry, ' seeds...\n', sep='')
+
+  initialNrounds = 1000
+  maximize = FALSE
   bestSeed = 1
-  bestTrainError = 100
-  bestCvError = 100
-  for (i in 1:100) {
+  bestNrounds = 0
+  bestTrainError = Inf
+  bestCvError = Inf
+  trainErrors = numeric(numSeedsToTry)
+  cvErrors = numeric(numSeedsToTry)
+  set.seed(1) #set seed at the start here so that we generate the same following seeds every time
+  for (i in 1:numSeedsToTry) {
     seed = sample(1:1000, 1)
     set.seed(seed)
     output = capture.output(cvRes <- xgb.cv(data=dataAsDMatrix,
         params=params,
         nfold=5,
-        nrounds=nrounds,
-        early.stop.round=early.stop.round,
-        maximize=maximize,
+        nrounds=initialNrounds,
+        early.stop.round=100,
+        maximize=FALSE,
         verbose=0))
-    didStopEarly = (length(output) > 0)
-    if (didStopEarly) {
-      nr = strtoi(substr(output, 27, nchar(output)))
-      trainError = cvRes$train.error.mean[nr]
-      cvError = cvRes$test.error.mean[nr]
-      cat('    seed=', seed, ', nrounds=', nr, ', trainError=', trainError, ', cvError=', cvError)
-      if (cvError < bestCvError) {
-        bestTrainError = trainError
-        bestCvError = cvError
-        bestSeed = seed
-        cat(' <- New best!')
-      }
-      cat('\n')
+    nrounds = if (length(output) > 0) strtoi(substr(output, 27, nchar(output))) else initialNrounds
+    trainErrors[i] = cvRes$train.error.mean[nrounds]
+    cvErrors[i] = cvRes$test.error.mean[nrounds]
+    cat('    ', i, '. seed=', seed, ', nrounds=', nrounds, ', trainError=', trainErrors[i], ', cvError=', cvErrors[i], sep='')
+    if (cvErrors[i] < bestCvError) {
+      bestSeed = seed
+      bestNrounds = nrounds
+      bestTrainError = trainErrors[i]
+      bestCvError = cvErrors[i]
+      cat(' <- New best!')
     }
+    cat('\n')
   }
 
-  cat('Best seed=', bestSeed, ', trainError=', bestTrainError, ', cvError=', bestCvError, '\n', sep='')
+  cat('    Average errors: train=', mean(trainErrors), ', cv=', mean(cvErrors), '\n', sep='')
+  cat('    Best seed=', bestSeed, ', nrounds=', bestNrounds, ', trainError=', bestTrainError, ', cvError=', bestCvError, '\n', sep='')
+
+  return(c(bestSeed, bestNrounds))
 }
 
 #============= Main ================
 
 #Globals
+FILENAME = 'r_xgb_bestSeed2'
 PROD_RUN = T
 THRESHOLD = 0.5
 TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
 PRINT_CV = F
-SEED = 284
 
 source('_getData.R')
 data = getData()
@@ -161,9 +177,6 @@ trainDMatrix = xgb.DMatrix(data=trainSparseMatrix, label=train$Survived)
 testSparseMatrix = sparse.model.matrix(~., data=subset(test, select=-c(PassengerId, Name, Ticket, Cabin)))
 
 #set hyper params
-nrounds = 1000
-early.stop.round = 100
-maximize = FALSE
 xgbParams = list(
   #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
   eta = 0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
@@ -189,41 +202,17 @@ xgbParams = list(
   objective = 'binary:logistic'
 )
 
-#find best seed
-#findBestSeed(trainDMatrix, xgbParams, nrounds, early.stop.round, maximize)
+#find best seed and nrounds
+sn = findBestSeedAndNrounds(trainDMatrix, xgbParams)
+seed = sn[1]
+nrounds = sn[2]
 
-#run cv
-cat('Finding best nrounds out of ', nrounds, '...\n    ', sep='')
-set.seed(SEED)
-if (PRINT_CV) {
-  cvRes <- xgb.cv(data=trainDMatrix,
-      params=xgbParams,
-      nfold=5,
-      nrounds=100,
-      verbose=1)
-} else {
-  output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
-      params=xgbParams,
-      nfold=5,
-      nrounds=nrounds,
-      early.stop.round=early.stop.round,
-      maximize=maximize,
-      verbose=0))
-  didStopEarly = (length(output) > 0)
-  if (didStopEarly) {
-    nrounds = strtoi(substr(output, 27, nchar(output)))
-    cat('Stopped early. ')
-  }
-}
-cat('Best nrounds=', nrounds, '\n', sep='')
-cat('Train, CV errors: ', cvRes$train.error.mean[nrounds], ', ', cvRes$test.error.mean[nrounds], '\n', sep='')
-
-if (PROD_RUN || TO_PLOT=='cv') plotCVErrorRates(cvRes, save=PROD_RUN)
-if (PROD_RUN || TO_PLOT=='lc') plotLearningCurve(train, xgbParams, nrounds, save=PROD_RUN)
+if (PROD_RUN || TO_PLOT=='cv') plotCVErrorRates(trainDMatrix, xgbParams, nrounds, seed, save=PROD_RUN)
+if (PROD_RUN || TO_PLOT=='lc') plotLearningCurve(train, xgbParams, nrounds, seed, save=PROD_RUN)
 
 #create model
 cat('Creating Model...\n')
-set.seed(SEED)
+set.seed(seed)
 model = xgb.train(data=trainDMatrix,
     params=xgbParams,
     nrounds=nrounds,
