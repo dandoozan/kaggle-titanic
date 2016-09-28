@@ -17,12 +17,14 @@
 #D-tune maxDepth=4: r_xgb_maxdepth4: 19, 0.15825, 0.165007, 0.79426
 #D-tune maxDepth=5: r_xgb_maxdepth5: 23, 0.142536, 0.161643, 0.79904
 #D-tune maxDepth=4, minChildWeight=0: 19, 0.156004, 0.163903, 0.79426
-#D-try gamma=2.5:r_xgb_gamma: 9, 0.152928, 0.160532, 0.79426
+#D-tune gamma=2.5:r_xgb_gamma: 9, 0.152928, 0.160532, 0.79426
+#D-find best seed (seed=284): r_xgb_bestSeed: 367, 0.109149, 0.150401, 0.79904
+#-tune params using avg of many seeds
 
 #Remove all objects from the current workspace
 rm(list = ls())
 
-FILENAME = 'r_xgb_gamma'
+FILENAME = 'r_xgb_bestSeed'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -70,11 +72,11 @@ plotLearningCurve = function(data, params, nrounds, save=FALSE) {
     trainSparseMatrix = sparse.model.matrix(Survived~., data=subset(trainSubset, select=-c(PassengerId, Name, Ticket, Cabin)))
     trainDMatrix <- xgb.DMatrix(data=trainSparseMatrix, label=trainSubset$Survived)
 
-    set.seed(754)
+    set.seed(SEED)
     model = xgb.train(data=trainDMatrix,
-                    params=params,
-                    nrounds=nrounds,
-                    verbose=0)
+        params=params,
+        nrounds=nrounds,
+        verbose=0)
 
     trainPrediction = predict(model, trainDMatrix)
     trainPrediction = as.numeric(trainPrediction > THRESHOLD)
@@ -103,6 +105,40 @@ plotFeatureImportances = function(model, dataAsSparseMatrix, save=FALSE) {
   if (save) dev.off()
 }
 
+findBestSeed = function(dataAsDMatrix, params, nrounds, early.stop.round, maximize) {
+  cat('Finding best seed...\n')
+  bestSeed = 1
+  bestTrainError = 100
+  bestCvError = 100
+  for (i in 1:100) {
+    seed = sample(1:1000, 1)
+    set.seed(seed)
+    output = capture.output(cvRes <- xgb.cv(data=dataAsDMatrix,
+        params=params,
+        nfold=5,
+        nrounds=nrounds,
+        early.stop.round=early.stop.round,
+        maximize=maximize,
+        verbose=0))
+    didStopEarly = (length(output) > 0)
+    if (didStopEarly) {
+      nr = strtoi(substr(output, 27, nchar(output)))
+      trainError = cvRes$train.error.mean[nr]
+      cvError = cvRes$test.error.mean[nr]
+      cat('    seed=', seed, ', nrounds=', nr, ', trainError=', trainError, ', cvError=', cvError)
+      if (cvError < bestCvError) {
+        bestTrainError = trainError
+        bestCvError = cvError
+        bestSeed = seed
+        cat(' <- New best!')
+      }
+      cat('\n')
+    }
+  }
+
+  cat('Best seed=', bestSeed, ', trainError=', bestTrainError, ', cvError=', bestCvError, '\n', sep='')
+}
+
 #============= Main ================
 
 #Globals
@@ -110,6 +146,7 @@ PROD_RUN = T
 THRESHOLD = 0.5
 TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
 PRINT_CV = F
+SEED = 284
 
 source('_getData.R')
 data = getData()
@@ -128,47 +165,50 @@ nrounds = 1000
 early.stop.round = 100
 maximize = FALSE
 xgbParams = list(
-    #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-    eta = 0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+  #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
+  eta = 0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
-    #range=[0,∞], default=0, toTry=?
-    gamma = 2.5, #Larger value=less overfitting
+  #range=[0,∞], default=0, toTry=?
+  gamma = 0, #Larger value=less overfitting
 
-    #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
-    max_depth = 5, #Lower value=less overfitting
+  #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
+  max_depth = 5, #Lower value=less overfitting
 
-    #range=[0,∞], default=1, toTry=1,3,5,7
-    min_child_weight = 1, #Larger value=less overfitting
+  #range=[0,∞], default=1, toTry=1,3,5,7
+  min_child_weight = 1, #Larger value=less overfitting
 
-    #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    subsample = 0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
+  #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
+  subsample = 0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
 
-    #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    colsample_bytree = 0.6, #ratio of cols (features) to use in each tree. Lower value=less overfitting
+  #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
+  colsample_bytree = 0.6, #ratio of cols (features) to use in each tree. Lower value=less overfitting
 
-    #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
-    booster = 'gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
+  #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
+  booster = 'gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
 
-    objective = 'binary:logistic'
-  )
+  objective = 'binary:logistic'
+)
+
+#find best seed
+#findBestSeed(trainDMatrix, xgbParams, nrounds, early.stop.round, maximize)
 
 #run cv
 cat('Finding best nrounds out of ', nrounds, '...\n    ', sep='')
-set.seed(754)
+set.seed(SEED)
 if (PRINT_CV) {
   cvRes <- xgb.cv(data=trainDMatrix,
-                  params=xgbParams,
-                  nfold=5,
-                  nrounds=100,
-                  verbose=1)
+      params=xgbParams,
+      nfold=5,
+      nrounds=100,
+      verbose=1)
 } else {
   output = capture.output(cvRes <- xgb.cv(data=trainDMatrix,
-                  params=xgbParams,
-                  nfold=5,
-                  nrounds=nrounds,
-                  early.stop.round=early.stop.round,
-                  maximize=maximize,
-                  verbose=0))
+      params=xgbParams,
+      nfold=5,
+      nrounds=nrounds,
+      early.stop.round=early.stop.round,
+      maximize=maximize,
+      verbose=0))
   didStopEarly = (length(output) > 0)
   if (didStopEarly) {
     nrounds = strtoi(substr(output, 27, nchar(output)))
@@ -183,11 +223,11 @@ if (PROD_RUN || TO_PLOT=='lc') plotLearningCurve(train, xgbParams, nrounds, save
 
 #create model
 cat('Creating Model...\n')
-set.seed(754)
+set.seed(SEED)
 model = xgb.train(data=trainDMatrix,
-                  params=xgbParams,
-                  nrounds=nrounds,
-                  verbose=0)
+    params=xgbParams,
+    nrounds=nrounds,
+    verbose=0)
 
 #plot feature importances
 if (PROD_RUN || TO_PLOT=='fi') plotFeatureImportances(model, trainSparseMatrix, save=PROD_RUN)
