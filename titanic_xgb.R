@@ -13,12 +13,12 @@
 #D-set nrounds based on early stopping: r_xgb_tune2: nrounds=30, 0.166108, 0.169521, 0.78947
 #D-remove -1 from sparse.model.matrix: r_xgb_smmNo-1: 28, 0.165547, 0.168397, 0.79426
 #D-tune eta=.02: r_xgb_eta02: 47, 0.164425, 0.167274, 0.79426
-
+#-tune eta=.01:
 
 #Remove all objects from the current workspace
 rm(list = ls())
 
-FILENAME = 'r_xgb_eta02'
+FILENAME = 'r_xgb_eta01'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -125,7 +125,7 @@ early.stop.round = 100
 maximize = FALSE
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-    'eta'=0.02, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+    'eta'=0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
     #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
     'max_depth'=3, #Lower value=less overfitting
