@@ -17,11 +17,12 @@
 #D-tune maxDepth=4: r_xgb_maxdepth4: 19, 0.15825, 0.165007, 0.79426
 #D-tune maxDepth=5: r_xgb_maxdepth5: 23, 0.142536, 0.161643, 0.79904
 #D-tune maxDepth=4, minChildWeight=0: 19, 0.156004, 0.163903, 0.79426
+#D-try gamma=2.5:r_xgb_gamma: 9, 0.152928, 0.160532, 0.79426
 
 #Remove all objects from the current workspace
 rm(list = ls())
 
-FILENAME = 'r_xgb_minChildWeight0'
+FILENAME = 'r_xgb_gamma'
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -128,24 +129,27 @@ early.stop.round = 100
 maximize = FALSE
 xgbParams = list(
     #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-    'eta'=0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+    eta = 0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+
+    #range=[0,∞], default=0, toTry=?
+    gamma = 2.5, #Larger value=less overfitting
 
     #range=[1,∞], default=6, toTry=3,5,7,9,12,15,17,25
-    'max_depth'=4, #Lower value=less overfitting
+    max_depth = 5, #Lower value=less overfitting
 
     #range=[0,∞], default=1, toTry=1,3,5,7
-    'min_child_weight'=0, #Larger value=less overfitting
+    min_child_weight = 1, #Larger value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'subsample'=0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
+    subsample = 0.8, #ratio of sample of data to use for each instance (eg. 0.5=50% of data). Lower value=less overfitting
 
     #range=(0,1], default=1, toTry=0.6,0.7,0.8,0.9,1.0
-    'colsample_bytree'=0.6, #ratio of cols (features) to use in each tree. Lower value=less overfitting
+    colsample_bytree = 0.6, #ratio of cols (features) to use in each tree. Lower value=less overfitting
 
     #values=gbtree|gblinear|dart, default=gbtree, toTry=gbtree,gblinear
-    'booster'='gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
+    booster = 'gbtree', #gbtree/dart=tree based, gblinear=linear function. Remove eta when using gblinear
 
-    'objective'='binary:logistic'
+    objective = 'binary:logistic'
   )
 
 #run cv
