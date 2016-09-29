@@ -20,7 +20,7 @@
 #D-tune gamma=2.5:r_xgb_gamma: 9, 0.152928, 0.160532, 0.79426
 #D-find best seed: r_xgb_bestSeed: seed=284, 367, 0.109149, 0.150401, 0.79904
 #D-use best seed out of 10: r_xgb_bestSeed2: 717, 103, 0.133838, 0.155943, 0.79904
-#-tune params using avg of many seeds
+#D-tune params using avg of many seeds: r_xgb_bestAvg: avgTrainError=0.1412764, avgCvError=0.159479, bestSeed=357, nrounds=297, bestTrainError=0.129349, bestCvError=0.152564, score=0.79426
 
 #Remove all objects from the current workspace
 rm(list = ls())
@@ -158,7 +158,7 @@ findBestSeedAndNrounds = function(dataAsDMatrix, params) {
 #============= Main ================
 
 #Globals
-FILENAME = 'r_xgb_bestSeed2'
+FILENAME = 'r_xgb_bestAvg'
 PROD_RUN = T
 THRESHOLD = 0.5
 TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
@@ -179,7 +179,7 @@ testSparseMatrix = sparse.model.matrix(~., data=subset(test, select=-c(Passenger
 #set hyper params
 xgbParams = list(
   #range=[0,1], default=0.3, toTry=0.01,0.015,0.025,0.05,0.1
-  eta = 0.01, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
+  eta = 0.005, #learning rate. Lower value=less overfitting, but increase nrounds when lowering eta
 
   #range=[0,∞], default=0, toTry=?
   gamma = 0, #Larger value=less overfitting
