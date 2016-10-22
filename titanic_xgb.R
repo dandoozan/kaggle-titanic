@@ -24,6 +24,7 @@
 
 #Remove all objects from the current workspace
 rm(list = ls())
+setwd('/Users/dan/Desktop/Kaggle/Titanic')
 
 library(xgboost)
 library(Matrix) #sparse.model.matrix
@@ -159,10 +160,9 @@ findBestSeedAndNrounds = function(dataAsDMatrix, params) {
 
 #Globals
 FILENAME = 'r_xgb_bestAvg'
-PROD_RUN = T
+PROD_RUN = F
 THRESHOLD = 0.5
-TO_PLOT = 'cv' #cv=cv errors, lc=learning curve, fi=feature importances
-PRINT_CV = F
+TO_PLOT = 'lc' #cv=cv errors, lc=learning curve, fi=feature importances
 
 source('_getData.R')
 data = getData()
